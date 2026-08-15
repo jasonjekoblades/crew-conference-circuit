@@ -1,0 +1,448 @@
+{
+  "_meta": {
+    "verified_on": "2026-08-10",
+    "method": "Each entry checked against the organizer's own domain. Aggregator listings were used only as corroboration and were noticeably less reliable.",
+    "note": "Every conference below has verified=true EXCEPT where flagged. Do not add entries to this file without the same verification standard \u2014 a wrong date here means someone books a wrong flight.",
+    "counts": "15 conferences across 15 series. 14 verified, 1 deliberately left unverified (HITEC 2027)."
+  },
+  "categories": [
+    "AI & Data",
+    "Enterprise Tech",
+    "Cloud & Infrastructure",
+    "Fintech & Payments",
+    "Private Equity & Finance",
+    "Healthcare & Pharma",
+    "Travel & Hospitality"
+  ],
+  "series": [
+    {
+      "slug": "dreamforce",
+      "name": "Dreamforce",
+      "organizer": "Salesforce",
+      "category": "Enterprise Tech",
+      "website": "https://www.salesforce.com/dreamforce/",
+      "aliases": [
+        "DF",
+        "DF26",
+        "Salesforce Dreamforce"
+      ]
+    },
+    {
+      "slug": "momentum-ai-austin",
+      "name": "Momentum AI Austin",
+      "organizer": "Reuters Events",
+      "category": "AI & Data",
+      "website": "https://events.reutersevents.com/momentum",
+      "aliases": [
+        "Reuters Momentum Austin",
+        "Momentum Austin"
+      ]
+    },
+    {
+      "slug": "momentum-ai-finance",
+      "name": "Momentum AI Finance",
+      "organizer": "Reuters Events",
+      "category": "AI & Data",
+      "website": "https://events.reutersevents.com/momentum/finance",
+      "aliases": [
+        "Momentum AI NYC",
+        "Momentum AI New York (finance edition)",
+        "Reuters Momentum Finance"
+      ]
+    },
+    {
+      "slug": "momentum-ai-new-york",
+      "name": "Momentum AI New York",
+      "organizer": "Reuters Events",
+      "category": "AI & Data",
+      "website": "https://events.reutersevents.com/momentum/nyc",
+      "aliases": [
+        "Momentum AI NY"
+      ],
+      "_warning": "DISTINCT from Momentum AI Finance. This one runs in APRIL. Keep both in the catalog specifically so the disambiguation surfaces at input time."
+    },
+    {
+      "slug": "private-equity-boston-forum",
+      "name": "Private Equity Boston Forum",
+      "organizer": "Markets Group",
+      "category": "Private Equity & Finance",
+      "website": "https://www.marketsgroup.org/forums/private-equity-boston-forum",
+      "aliases": [
+        "PE Boston",
+        "Markets Group Private Equity Boston"
+      ]
+    },
+    {
+      "slug": "money2020-usa",
+      "name": "Money20/20 USA",
+      "organizer": "Money20/20",
+      "category": "Fintech & Payments",
+      "website": "https://us.money2020.com/",
+      "aliases": [
+        "Money 20/20",
+        "Money2020",
+        "M2020",
+        "Money 20/20 USA",
+        "Money20/20 Vegas"
+      ]
+    },
+    {
+      "slug": "pharma-customer-engagement-usa",
+      "name": "Pharma Customer Engagement USA",
+      "organizer": "Reuters Events",
+      "category": "Healthcare & Pharma",
+      "website": "https://events.reutersevents.com/pharma/customer-engagement-usa",
+      "aliases": [
+        "Reuters Pharma Customer Engagement",
+        "PCE USA"
+      ],
+      "_warning": "Reuters also runs Pharma Clinical Innovation USA in Philadelphia in early October. Different event."
+    },
+    {
+      "slug": "aws-reinvent",
+      "name": "AWS re:Invent",
+      "organizer": "Amazon Web Services",
+      "category": "Cloud & Infrastructure",
+      "website": "https://reinvent.awsevents.com/",
+      "aliases": [
+        "reInvent",
+        "re:Invent",
+        "AWS reInvent"
+      ]
+    },
+    {
+      "slug": "skift-global-forum",
+      "name": "Skift Global Forum",
+      "organizer": "Skift",
+      "category": "Travel & Hospitality",
+      "website": "https://live.skift.com/skift-global-forum/",
+      "aliases": [
+        "Skift Forum",
+        "SGF"
+      ],
+      "_warning": "Skift runs MANY similarly-named forums (Meetings Forum, Asia Forum, Live Tourism Summit). Skift Meetings Forum shares the same venue and start date. Always disambiguate."
+    },
+    {
+      "slug": "skift-meetings-forum",
+      "name": "Skift Meetings Forum",
+      "organizer": "Skift",
+      "category": "Travel & Hospitality",
+      "website": "https://live.skift.com/skift-meetings-forum/",
+      "aliases": [
+        "Skift Meetings"
+      ],
+      "_warning": "Same venue AND same start date as Skift Global Forum. Highest-difficulty dedupe case in the seed."
+    },
+    {
+      "slug": "phocuswright-conference",
+      "name": "The Phocuswright Conference",
+      "organizer": "Phocuswright (Northstar Travel Media)",
+      "category": "Travel & Hospitality",
+      "website": "https://www.phocuswrightconference.com/",
+      "aliases": [
+        "Phocuswright",
+        "PhocusWright Conference"
+      ]
+    },
+    {
+      "slug": "hitec-north-america",
+      "name": "HITEC North America",
+      "organizer": "HFTP",
+      "category": "Travel & Hospitality",
+      "website": "https://www.hitec.org/",
+      "aliases": [
+        "HITEC",
+        "Hospitality Industry Technology Exposition and Conference"
+      ]
+    },
+    {
+      "slug": "fintech-meetup",
+      "name": "Fintech Meetup",
+      "organizer": "Fintech Meetup",
+      "category": "Fintech & Payments",
+      "website": "https://www.fintechmeetup.com/",
+      "aliases": [
+        "FinTech Meetup",
+        "FTM"
+      ]
+    },
+    {
+      "slug": "nacha-smarter-faster-payments",
+      "name": "Nacha Smarter Faster Payments",
+      "organizer": "Nacha",
+      "category": "Fintech & Payments",
+      "website": "https://payments.nacha.org/",
+      "aliases": [
+        "Smarter Faster Payments",
+        "Nacha Payments",
+        "Payments 2027",
+        "SFP"
+      ],
+      "_warning": "Nacha brands this simply 'Payments' plus the year. Members may enter it either way."
+    },
+    {
+      "slug": "transact-eta",
+      "name": "TRANSACT",
+      "organizer": "Electronic Transactions Association",
+      "category": "Fintech & Payments",
+      "website": "https://etatransact.com/",
+      "aliases": [
+        "ETA TRANSACT",
+        "Transact",
+        "ETA Transact"
+      ]
+    }
+  ],
+  "conferences": [
+    {
+      "series_slug": "dreamforce",
+      "year": 2026,
+      "name": "Dreamforce 2026",
+      "start_date": "2026-09-15",
+      "end_date": "2026-09-17",
+      "city": "San Francisco",
+      "state": "CA",
+      "country": "USA",
+      "venue": "Moscone Center, 747 Howard Street",
+      "website": "https://www.salesforce.com/dreamforce/",
+      "verified": true,
+      "source": "seed"
+    },
+    {
+      "series_slug": "skift-global-forum",
+      "year": 2026,
+      "name": "Skift Global Forum 2026",
+      "start_date": "2026-09-22",
+      "end_date": "2026-09-24",
+      "city": "New York",
+      "state": "NY",
+      "country": "USA",
+      "venue": "North Javits Center, 445 11th Ave",
+      "website": "https://live.skift.com/skift-global-forum/",
+      "verified": true,
+      "source": "seed",
+      "note": "Roughly 1,200 travel executives. Theme: Travel's Great Recalibration."
+    },
+    {
+      "series_slug": "skift-meetings-forum",
+      "year": 2026,
+      "name": "Skift Meetings Forum 2026",
+      "start_date": "2026-09-22",
+      "end_date": "2026-09-22",
+      "city": "New York",
+      "state": "NY",
+      "country": "USA",
+      "venue": "North Javits Center, 445 11th Ave",
+      "website": "https://live.skift.com/skift-meetings-forum/",
+      "verified": true,
+      "source": "seed",
+      "note": "One day, co-located with Skift Global Forum. Events industry focus, not general travel."
+    },
+    {
+      "series_slug": "momentum-ai-austin",
+      "year": 2026,
+      "name": "Momentum AI Austin 2026",
+      "start_date": "2026-09-24",
+      "end_date": "2026-09-25",
+      "city": "Austin",
+      "state": "TX",
+      "country": "USA",
+      "venue": null,
+      "website": "https://events.reutersevents.com/momentum",
+      "verified": true,
+      "source": "seed",
+      "note": "Invite-only, capped around 500 attendees."
+    },
+    {
+      "series_slug": "private-equity-boston-forum",
+      "year": 2026,
+      "name": "Private Equity Boston Forum 2026",
+      "start_date": "2026-09-30",
+      "end_date": "2026-10-01",
+      "city": "Boston",
+      "state": "MA",
+      "country": "USA",
+      "venue": "State Room",
+      "website": "https://www.marketsgroup.org/forums/private-equity-boston-forum",
+      "verified": true,
+      "source": "seed",
+      "note": "4th annual. Complimentary registration for qualified LPs and GPs."
+    },
+    {
+      "series_slug": "money2020-usa",
+      "year": 2026,
+      "name": "Money20/20 USA 2026",
+      "start_date": "2026-10-18",
+      "end_date": "2026-10-21",
+      "city": "Las Vegas",
+      "state": "NV",
+      "country": "USA",
+      "venue": "The Venetian Resort, 3355 Las Vegas Blvd S",
+      "website": "https://us.money2020.com/",
+      "verified": true,
+      "source": "seed"
+    },
+    {
+      "series_slug": "pharma-customer-engagement-usa",
+      "year": 2026,
+      "name": "Pharma Customer Engagement USA 2026",
+      "start_date": "2026-10-27",
+      "end_date": "2026-10-28",
+      "city": "Philadelphia",
+      "state": "PA",
+      "country": "USA",
+      "venue": "Pennsylvania Convention Center, 1101 Arch Street",
+      "website": "https://events.reutersevents.com/pharma/customer-engagement-usa",
+      "verified": true,
+      "source": "seed"
+    },
+    {
+      "series_slug": "momentum-ai-finance",
+      "year": 2026,
+      "name": "Momentum AI Finance 2026",
+      "start_date": "2026-11-16",
+      "end_date": "2026-11-17",
+      "city": "New York",
+      "state": "NY",
+      "country": "USA",
+      "venue": null,
+      "website": "https://events.reutersevents.com/momentum/finance",
+      "verified": true,
+      "source": "seed",
+      "note": "CONFIRM WITH MEMBER: originally entered as 'Momentum AI NYC, Nov 16-18'. Resolved to this event by date. Two days, not three."
+    },
+    {
+      "series_slug": "phocuswright-conference",
+      "year": 2026,
+      "name": "The Phocuswright Conference 2026",
+      "start_date": "2026-11-17",
+      "end_date": "2026-11-19",
+      "city": "Fort Lauderdale",
+      "state": "FL",
+      "country": "USA",
+      "venue": "Diplomat Beach Resort",
+      "website": "https://www.phocuswrightconference.com/",
+      "verified": true,
+      "source": "seed",
+      "note": "Around 3,600 attendees. Moved from San Diego to South Florida for 2026."
+    },
+    {
+      "series_slug": "aws-reinvent",
+      "year": 2026,
+      "name": "AWS re:Invent 2026",
+      "start_date": "2026-11-30",
+      "end_date": "2026-12-04",
+      "city": "Las Vegas",
+      "state": "NV",
+      "country": "USA",
+      "venue": "Multiple Strip venues: Caesars Forum, Caesars Palace, Encore, MGM Grand, The Venetian, Wynn",
+      "website": "https://reinvent.awsevents.com/",
+      "verified": true,
+      "source": "seed"
+    },
+    {
+      "series_slug": "fintech-meetup",
+      "year": 2027,
+      "name": "Fintech Meetup 2027",
+      "start_date": "2027-02-22",
+      "end_date": "2027-02-24",
+      "city": "Las Vegas",
+      "state": "NV",
+      "country": "USA",
+      "venue": "The Venetian",
+      "website": "https://www.fintechmeetup.com/",
+      "verified": true,
+      "source": "seed",
+      "note": "5,000+ attendees. Built around a large double-opt-in one-to-one meetings program. Theme: Built on Trust."
+    },
+    {
+      "series_slug": "nacha-smarter-faster-payments",
+      "year": 2027,
+      "name": "Nacha Smarter Faster Payments 2027",
+      "start_date": "2027-04-11",
+      "end_date": "2027-04-14",
+      "city": "National Harbor",
+      "state": "MD",
+      "country": "USA",
+      "venue": "Gaylord National Resort & Convention Center",
+      "website": "https://payments.nacha.org/",
+      "verified": true,
+      "source": "seed",
+      "note": "Just outside Washington D.C. Registration opens September 2026. A separate virtual event, Remote Connect, runs June 7-9, 2027."
+    },
+    {
+      "series_slug": "transact-eta",
+      "year": 2027,
+      "name": "TRANSACT 2027",
+      "start_date": "2027-04-19",
+      "end_date": "2027-04-21",
+      "city": "Las Vegas",
+      "state": "NV",
+      "country": "USA",
+      "venue": null,
+      "website": "https://etatransact.com/",
+      "verified": true,
+      "source": "seed",
+      "note": "3,000+ payments professionals. Falls the week after Nacha - relevant for anyone doing both."
+    },
+    {
+      "series_slug": "momentum-ai-new-york",
+      "year": 2027,
+      "name": "Momentum AI New York 2027",
+      "start_date": "2027-04-27",
+      "end_date": "2027-04-28",
+      "city": "New York",
+      "state": "NY",
+      "country": "USA",
+      "venue": null,
+      "website": "https://events.reutersevents.com/momentum/nyc",
+      "verified": true,
+      "source": "seed",
+      "note": "Included deliberately as a decoy for duplicate-detection testing. Anyone typing 'Momentum AI NYC' must be shown both this and Momentum AI Finance."
+    },
+    {
+      "series_slug": "hitec-north-america",
+      "year": 2027,
+      "name": "HITEC North America 2027",
+      "start_date": "2027-06-28",
+      "end_date": "2027-07-01",
+      "city": "Orlando",
+      "state": "FL",
+      "country": "USA",
+      "venue": "Orange County Convention Center",
+      "website": "https://www.hitec.org/",
+      "verified": false,
+      "source": "seed",
+      "note": "UNVERIFIED. Dates come from aggregator listings only - HFTP's own site confirms HITEC returns in 2027 but had not published dates at time of seeding. Confirm before relying on this. Left unverified deliberately as a live example of the marker."
+    }
+  ],
+  "seed_attendance": [
+    {
+      "member": "FOUNDING_MEMBER",
+      "conference_slugs": [
+        "dreamforce-2026",
+        "momentum-ai-austin-2026",
+        "private-equity-boston-forum-2026",
+        "money2020-usa-2026",
+        "pharma-customer-engagement-usa-2026",
+        "momentum-ai-finance-2026",
+        "aws-reinvent-2026"
+      ],
+      "note": "Set this member's visibility to 'all_members' so the first users to arrive see a populated app rather than an empty one."
+    }
+  ],
+  "_todo": {
+    "expand_to": "30-50 conferences before opening signups",
+    "context": "CREW's membership is heavy in payments and travel. Those two categories should be the deepest in the catalog even though the founding member's own mix skews toward AI and enterprise tech.",
+    "coverage_gaps": [
+      "Fintech & Payments - Sibos, FinovateFall, Fiserv Forum, Payments Canada Summit, Amex/Visa/Mastercard partner events",
+      "Travel & Hospitality - GBTA Convention (2027 dates not yet published), ITB Berlin, WTM London, IMEX America, The Hotel Show, Travel Weekly events",
+      "Enterprise Tech - Workday Rising, Gartner Symposium, HR Tech",
+      "Cloud & Infrastructure - Google Cloud Next, Microsoft Ignite, KubeCon",
+      "Healthcare & Pharma - HIMSS, JPM Healthcare",
+      "Security - RSA Conference, Black Hat",
+      "Private Equity & Finance - other Markets Group forums, Milken Global"
+    ],
+    "standard": "Verify every addition against the organizer's own site. During seeding, aggregator listings were wrong or vague repeatedly - one placed Fintech Meetup at Mandalay Bay rather than The Venetian, several gave single-day ranges for multi-day events, and several returned prior-year dates. Treat listing sites as corroboration only."
+  }
+}
