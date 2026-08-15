@@ -1,26 +1,122 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../styles/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-heading);
+
+  /* CREW brand utilities — bg-ink, text-slate, border-line, text-brass, etc.
+     Values come from src/styles/tokens.css, the single source of truth. */
+  --color-ink: var(--crew-ink);
+  --color-ink-2: var(--crew-ink-2);
+  --color-slate: var(--crew-slate);
+  --color-line: var(--crew-line);
+  --color-paper: var(--crew-paper);
+  --color-brass: var(--crew-brass);
+  --color-error: var(--crew-error);
+  --color-error-bg: var(--crew-error-bg);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* shadcn semantic tokens, remapped onto the CREW palette (src/styles/tokens.css)
+     so every shadcn component (Button, Card, Input, ...) inherits the brand
+     without any component-level hex values. */
+  --background: var(--crew-paper);
+  --foreground: var(--crew-ink);
+  --card: var(--crew-card);
+  --card-foreground: var(--crew-ink);
+  --popover: var(--crew-card);
+  --popover-foreground: var(--crew-ink);
+  --primary: var(--crew-ink);
+  --primary-foreground: var(--crew-card);
+  --secondary: var(--crew-card);
+  --secondary-foreground: var(--crew-ink);
+  --muted: var(--crew-paper);
+  --muted-foreground: var(--crew-slate);
+  --accent: var(--crew-paper);
+  --accent-foreground: var(--crew-ink);
+  --destructive: var(--crew-error);
+  --border: var(--crew-line);
+  --input: var(--crew-line);
+  --ring: var(--crew-ink-2);
+  --chart-1: var(--crew-ink);
+  --chart-2: var(--crew-ink-2);
+  --chart-3: var(--crew-slate);
+  --chart-4: var(--crew-brass);
+  --chart-5: var(--crew-line);
+  --radius: 0.625rem;
+  --sidebar: var(--crew-card);
+  --sidebar-foreground: var(--crew-ink);
+  --sidebar-primary: var(--crew-ink);
+  --sidebar-primary-foreground: var(--crew-card);
+  --sidebar-accent: var(--crew-paper);
+  --sidebar-accent-foreground: var(--crew-ink);
+  --sidebar-border: var(--crew-line);
+  --sidebar-ring: var(--crew-ink-2);
+}
+
+/* No .dark theme: this app has no dark-mode toggle. Reintroduce it here (mapped
+   onto real tokens, not raw oklch) if that ever changes — don't hardcode colors
+   outside src/styles/tokens.css. */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* CLAUDE.md §4: "Section labels are 11px, uppercase, 0.14em tracking." */
+  .label {
+    @apply text-slate text-[11px] font-semibold uppercase tracking-[0.14em];
+  }
 }

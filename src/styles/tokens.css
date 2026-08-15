@@ -1,0 +1,34 @@
+/**
+ * Design tokens — the ONLY place a color or font stack is spelled out as a literal
+ * value in this app. Every component and every other stylesheet references these
+ * custom properties (directly, or via the Tailwind utilities mapped from them in
+ * globals.css). Never hardcode a hex value or font name in a component.
+ *
+ * The color values below are PLACEHOLDERS approximating CREW's public brand
+ * (see CLAUDE.md §4). They will be replaced with real brand values before the
+ * pitch build — swap them here and the whole app updates.
+ */
+
+:root {
+  /* CREW placeholder brand palette — CLAUDE.md §4 */
+  --crew-ink: #101e33; /* primary navy — headings, filled states */
+  --crew-ink-2: #2a3c57; /* secondary text, avatars */
+  --crew-slate: #68788f; /* meta text, labels */
+  --crew-line: #dee4ec; /* hairlines, borders */
+  --crew-paper: #eef1f5; /* app background */
+  --crew-card: #ffffff;
+  --crew-brass: #a8791f; /* accent — ONLY marks "you". Nothing else. */
+
+  /* Not part of CLAUDE.md §4 (which defines no error color) — added for form
+     validation / generic-failure messaging. Muted, not a bright red, to stay
+     consistent with "no bright accents." Revisit alongside real brand tokens. */
+  --crew-error: #8c2f2f;
+  --crew-error-bg: #f7eeee;
+
+  /* Type — CLAUDE.md §4: Newsreader (transitional serif) for headings and
+     conference names, Inter for body/labels/data. Actual font loading (with
+     fallback stacks) happens in layout.tsx via next/font; these variables are
+     populated there and just re-exposed under stable names here. */
+  --font-heading: var(--font-heading-loaded), ui-serif, Georgia, serif;
+  --font-body: var(--font-body-loaded), ui-sans-serif, system-ui, sans-serif;
+}
