@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient, createRequestScopedSupabaseClient } from "@/lib/supabase/admin";
 import { verifyInviteCode } from "@/lib/invite-code";
+import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,6 +35,23 @@ export async function POST(request: NextRequest) {
   }
 
   const email = rawEmail.toLowerCase();
+
+  // Rate limit by IP (blunt brute-force / invite-code guessing protection)
+  // and separately by email (so one address can't be hammered with magic-
+  // link sends via many source IPs). Both are generous enough not to bother
+  // a real member fumbling their invite code once or twice.
+  const ip = requestIp(request);
+  const [ipLimit, emailLimit] = await Promise.all([
+    checkRateLimit(`signup:ip:${ip}`, 10, 15),
+    checkRateLimit(`signup:email:${email}`, 5, 15),
+  ]);
+  if (ipLimit.limited || emailLimit.limited) {
+    return NextResponse.json(
+      { ok: false, message: "Too many attempts. Wait a few minutes and try again." },
+      { status: 429 }
+    );
+  }
+
   const admin = createAdminSupabaseClient();
 
   const { data: settingsRows, error: settingsError } = await admin
