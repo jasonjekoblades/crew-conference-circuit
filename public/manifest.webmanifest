@@ -1,0 +1,17 @@
+{
+  "name": "CREW Conference Circuit",
+  "short_name": "CREW Circuit",
+  "description": "See which CREW members are at the same conferences and meet up.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EEF1F5",
+  "theme_color": "#101E33",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+<!-- Standalone asset — can't reference CSS custom properties. Colors copied
+     from src/styles/tokens.css (--crew-ink, --crew-brass); update by hand if
+     those change. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#101e33"/>
+  <text x="256" y="336" font-family="Georgia, 'Times New Roman', serif" font-size="300"
+        font-weight="600" fill="#a8791f" text-anchor="middle">C</text>
+</svg>
