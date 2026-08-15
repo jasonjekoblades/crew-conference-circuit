@@ -167,6 +167,16 @@ export default function LoginPage() {
             </div>
           </div>
         )}
+
+        <p className="text-center text-[11px] text-slate mt-10">
+          <a href="/privacy" className="underline">
+            Privacy
+          </a>{" "}
+          &middot;{" "}
+          <a href="/terms" className="underline">
+            Terms
+          </a>
+        </p>
       </div>
     </main>
   );
