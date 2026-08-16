@@ -4,50 +4,155 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMemberSession, isOnboarded } from "@/lib/auth/use-member-session";
+import type { Conference } from "@/lib/conferences";
+import { ConferenceRow } from "@/components/conference-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-type Visibility = "all_members" | "co_attendees";
+type Step = 1 | 2 | 3 | 4;
+
+type PayoffEntry =
+  | { conference: Conference; others: { name: string; title: string | null }[] }
+  | { conference: Conference; others: null }; // null = "first here"
+
+type Teaser = { name: string; city: string; attendee_count: number };
 
 export default function OnboardingPage() {
   const router = useRouter();
   const session = useMemberSession();
 
+  const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState("");
+  const [conferences, setConferences] = useState<Conference[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [payoff, setPayoff] = useState<PayoffEntry[] | null>(null);
+  const [skipTeaser, setSkipTeaser] = useState<Teaser[] | null>(null);
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [visibility, setVisibility] = useState<Visibility>("co_attendees");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (session.status === "anonymous") {
-      router.replace("/login");
+      router.replace("/enter");
     } else if (session.status === "ready" && isOnboarded(session.member)) {
       router.replace("/");
     }
   }, [session, router]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (step !== 2 || conferences !== null) return;
+    getSupabaseClient()
+      .from("conferences")
+      .select("id, name, city, country, start_date, end_date, category")
+      .eq("status", "published")
+      .order("start_date", { ascending: true })
+      .then(({ data }) => setConferences((data as Conference[]) ?? []));
+  }, [step, conferences]);
+
+  function toggleConference(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleStep1Continue(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setStep(2);
+  }
+
+  async function handleStep2Continue() {
+    if (session.status !== "ready") return;
+    setSubmitting(true);
+    setError(null);
+
+    const supabase = getSupabaseClient();
+    const trimmedName = name.trim();
+
+    const { error: nameError } = await supabase
+      .from("members")
+      .update({ name: trimmedName })
+      .eq("id", session.member.id);
+
+    if (nameError) {
+      setSubmitting(false);
+      setError("Couldn't save that. Try again.");
+      return;
+    }
+
+    const ids = Array.from(selectedIds);
+    if (ids.length > 0) {
+      const { error: attendError } = await supabase
+        .from("attendances")
+        .insert(ids.map((conference_id) => ({ member_id: session.member.id, conference_id })));
+      if (attendError) {
+        setSubmitting(false);
+        setError("Couldn't save your conferences. Try again.");
+        return;
+      }
+    }
+
+    if (ids.length === 0) {
+      const { data: teaserData } = await supabase.rpc("login_teaser");
+      setSkipTeaser((teaserData as Teaser[]) ?? []);
+    } else {
+      const entries: PayoffEntry[] = [];
+      for (const id of ids) {
+        const conference = conferences?.find((c) => c.id === id);
+        if (!conference) continue;
+
+        const { data: rows } = await supabase
+          .from("attendances")
+          .select("member_id")
+          .eq("conference_id", id);
+        const otherIds = (rows ?? [])
+          .map((r) => r.member_id)
+          .filter((mid) => mid !== session.member.id);
+
+        if (otherIds.length === 0) {
+          entries.push({ conference, others: null });
+          continue;
+        }
+
+        const { data: others } = await supabase
+          .from("members")
+          .select("name, title")
+          .in("id", otherIds);
+
+        entries.push({
+          conference,
+          others: (others ?? [])
+            .filter((o) => o.name)
+            .map((o) => ({ name: o.name as string, title: o.title })),
+        });
+      }
+      setPayoff(entries);
+    }
+
+    setSubmitting(false);
+    setStep(3);
+  }
+
+  async function handleStep4Submit(e: React.FormEvent) {
     e.preventDefault();
     if (session.status !== "ready") return;
-
     setSubmitting(true);
     setError(null);
 
     const { error: updateError } = await getSupabaseClient()
       .from("members")
       .update({
-        name: name.trim(),
-        title: title.trim(),
-        company: company.trim(),
+        title: title.trim() || null,
+        company: company.trim() || null,
         linkedin_url: linkedinUrl.trim() || null,
-        visibility,
       })
       .eq("id", session.member.id);
 
@@ -57,7 +162,6 @@ export default function OnboardingPage() {
       setError("Couldn't save that. Try again.");
       return;
     }
-
     router.push("/");
   }
 
@@ -68,78 +172,185 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-dvh bg-paper flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-1">
-          A few details
-        </h1>
-        <p className="text-sm text-slate text-center mb-6">
-          This is what other CREW members will see.
-        </p>
+        {step === 1 && (
+          <>
+            <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-1">
+              What should other members call you?
+            </h1>
+            <p className="text-sm text-slate text-center mb-6">
+              Just your name — that&rsquo;s the minimum for anyone to recognize you.
+            </p>
+            <Card className="border-line">
+              <CardContent className="pt-6">
+                <form onSubmit={handleStep1Continue} className="space-y-4">
+                  <Input
+                    autoFocus
+                    required
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                  <Button type="submit" className="w-full" disabled={!name.trim()}>
+                    Continue
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-        <Card className="border-line">
-          <CardHeader className="pb-0">
-            <span className="label">Profile</span>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="company">Company</Label>
-                <Input id="company" required value={company} onChange={(e) => setCompany(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="linkedin">LinkedIn (optional)</Label>
-                <Input
-                  id="linkedin"
-                  type="url"
-                  placeholder="https://linkedin.com/in/…"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2 pt-2">
-                <Label>Who can see your conferences</Label>
-                <RadioGroup
-                  value={visibility}
-                  onValueChange={(v) => setVisibility(v as Visibility)}
-                  className="gap-3"
-                >
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <RadioGroupItem value="co_attendees" id="vis-co" className="mt-0.5" />
-                    <span className="text-[13px] text-ink-2 leading-snug">
-                      <span className="font-medium text-ink">Only people going with me</span> —
-                      visible to other members attending the same conference. (Default)
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <RadioGroupItem value="all_members" id="vis-all" className="mt-0.5" />
-                    <span className="text-[13px] text-ink-2 leading-snug">
-                      <span className="font-medium text-ink">Any CREW member</span> — visible to
-                      everyone in the pilot, whether or not they&rsquo;re attending.
-                    </span>
-                  </label>
-                </RadioGroup>
-              </div>
-
-              {error && (
-                <Alert className="border-error bg-error-bg">
-                  <AlertDescription className="text-error">{error}</AlertDescription>
-                </Alert>
+        {step === 2 && (
+          <>
+            <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-1">
+              What conferences are you going to?
+            </h1>
+            <p className="text-sm text-slate text-center mb-6">
+              Tap any you&rsquo;re attending. Other CREW members will see you&rsquo;re
+              going.
+            </p>
+            <Card className="border-line overflow-hidden py-0">
+              {conferences === null ? (
+                <p className="text-sm text-slate p-4">Loading…</p>
+              ) : (
+                <div className="max-h-96 overflow-y-auto">
+                  {conferences.map((c) => (
+                    <ConferenceRow
+                      key={c.id}
+                      conference={c}
+                      going={selectedIds.has(c.id)}
+                      onToggle={() => toggleConference(c.id)}
+                      disabled={submitting}
+                    />
+                  ))}
+                </div>
               )}
-
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? "Saving…" : "Continue"}
+            </Card>
+            {error && (
+              <Alert className="border-error bg-error-bg mt-4">
+                <AlertDescription className="text-error">{error}</AlertDescription>
+              </Alert>
+            )}
+            <div className="mt-4 space-y-2">
+              <Button className="w-full" disabled={submitting} onClick={handleStep2Continue}>
+                {submitting ? "Saving…" : selectedIds.size > 0 ? "Continue" : "Skip for now"}
               </Button>
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-6">
+              {payoff && payoff.length > 0 ? "Here's who you'll see" : "Where CREW is going"}
+            </h1>
+
+            {payoff && payoff.length > 0 ? (
+              <div className="space-y-4">
+                {payoff.map(({ conference, others }) => (
+                  <Card key={conference.id} className="border-line">
+                    <CardHeader className="pb-2">
+                      <div className="font-heading text-[16px] text-ink">{conference.name}</div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      {others === null ? (
+                        <p className="text-sm text-slate">
+                          You&rsquo;re the first CREW member here. Others will see you when
+                          they add it.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-ink-2">
+                          You&rsquo;re going with{" "}
+                          <span className="font-medium">
+                            {others.length} other CREW member{others.length === 1 ? "" : "s"}
+                          </span>
+                          : {others.map((o) => o.name).join(", ")}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-slate text-center mb-3">
+                  You can always add conferences later. Here&rsquo;s where CREW is going now:
+                </p>
+                {(skipTeaser ?? []).map((t) => (
+                  <div
+                    key={t.name}
+                    className="flex items-center justify-between rounded-lg border border-line bg-card px-4 py-3"
+                  >
+                    <div>
+                      <div className="font-heading text-[15px] text-ink">{t.name}</div>
+                      <div className="text-[11.5px] text-slate">{t.city}</div>
+                    </div>
+                    <span className="text-xs font-semibold text-slate">
+                      {t.attendee_count} going
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button className="w-full mt-6" onClick={() => setStep(4)}>
+              Continue
+            </Button>
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-1">
+              Help people recognize you
+            </h1>
+            <p className="text-sm text-slate text-center mb-6">Optional — skip if you&rsquo;d rather do this later.</p>
+            <Card className="border-line">
+              <CardContent className="pt-6">
+                <form onSubmit={handleStep4Submit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="title">Title</Label>
+                    <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="company">Company</Label>
+                    <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="linkedin">LinkedIn</Label>
+                    <Input
+                      id="linkedin"
+                      type="url"
+                      placeholder="https://linkedin.com/in/…"
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                    />
+                  </div>
+
+                  {error && (
+                    <Alert className="border-error bg-error-bg">
+                      <AlertDescription className="text-error">{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="space-y-2">
+                    <Button type="submit" className="w-full" disabled={submitting}>
+                      {submitting ? "Saving…" : "Continue"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={submitting}
+                      onClick={() => router.push("/")}
+                    >
+                      Skip for now
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </main>
   );
