@@ -10,6 +10,15 @@
 -- function below is narrow on purpose — it returns a boolean or a single
 -- enum value, never a row — so it can't be used to exfiltrate data beyond
 -- what it's named for.
+--
+-- `set search_path = public, pg_temp` on every one of them: Postgres always
+-- searches a session's temp schema (pg_temp) FIRST for table/view lookups
+-- UNLESS it's explicitly listed in search_path — so a bare `search_path =
+-- public` still leaves pg_temp implicitly first. Anyone with CREATE TEMP
+-- privilege (any authenticated user, by default) could otherwise shadow
+-- `members` with a same-named temp table and have these SECURITY DEFINER
+-- functions read from it instead. Listing pg_temp explicitly (after public)
+-- pins the search order and closes that off.
 
 -- Is the calling user an approved member? (Not just present in `members` —
 -- a pending or rejected row must not pass this.)
@@ -17,7 +26,7 @@ create or replace function public.is_approved_member()
 returns boolean
 language sql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 stable
 as $$
   select exists (
@@ -31,7 +40,7 @@ create or replace function public.is_curator()
 returns boolean
 language sql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 stable
 as $$
   select exists (
@@ -47,7 +56,7 @@ create or replace function public.member_visibility(p_member_id uuid)
 returns text
 language sql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 stable
 as $$
   select visibility from members where id = p_member_id;
@@ -62,7 +71,7 @@ create or replace function public.conference_attendee_count(p_conference_id uuid
 returns integer
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 stable
 as $$
 begin
@@ -85,7 +94,7 @@ create or replace function public.login_teaser()
 returns table (name text, city text, attendee_count integer)
 language sql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 stable
 as $$
   select

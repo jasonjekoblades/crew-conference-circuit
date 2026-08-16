@@ -25,7 +25,7 @@ create or replace function public.prune_old_rate_limit_events()
 returns void
 language sql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   delete from rate_limit_events where created_at < now() - interval '1 day';
 $$;
