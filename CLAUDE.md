@@ -25,8 +25,9 @@ below is subordinate to making input take under 60 seconds and feel rewarding.
 
 ## 2. Non-negotiable constraints
 
-1. **No passwords.** Magic-link email auth only. These are senior executives; a password
-   form loses a meaningful share of them.
+1. **No accounts, no email, no passwords.** One shared invite code is the only gate.
+   These are 16 vetted peers looking at a list of public conferences — account
+   infrastructure costs more than it protects. See §6.
 2. **Mobile-first.** The primary use is a phone in a conference hallway. Desktop is
    secondary but must not look broken.
 3. **Iframe-safe from day one.** This may eventually be embedded in Circle. Use
@@ -34,8 +35,9 @@ below is subordinate to making input take under 60 seconds and feel rewarding.
    Layout must survive a 380px-wide embed.
 4. **Never build messaging.** Members message each other on CREW's own platform.
    Contact affordances are outbound links only.
-5. **Member records are keyed on the email address they use for CREW.** This is what makes
-   a future SSO migration a mapping exercise instead of a data re-entry project.
+5. **Members self-identify by name only.** No email is collected. A future migration to
+   CREW SSO maps names to real identities once — a one-time reconciliation of 16 rows,
+   which is cheaper than the email infrastructure it replaces.
 6. **The Anthropic API key is never exposed client-side.** See §9.
 
 ---
@@ -44,8 +46,8 @@ below is subordinate to making input take under 60 seconds and feel rewarding.
 
 - Next.js (App Router) + TypeScript
 - Tailwind + shadcn/ui
-- Supabase (Postgres, magic-link auth, Row Level Security)
-- Resend for transactional email
+- Supabase (Postgres, anonymous auth, Row Level Security)
+- No email service. The app sends no email (§12).
 - Vercel hosting
 - PWA manifest so it installs to a home screen. No native app, no app store.
 
@@ -90,11 +92,13 @@ Match its density and restraint.
 
 ```sql
 members
-  id, email (unique, lowercased), name, title, company, linkedin_url,
-  status            -- 'pending' | 'approved' | 'rejected'
-  visibility        -- 'all_members' | 'co_attendees'   DEFAULT 'all_members'
+  id, auth_user_id (unique, -> auth.users.id), name, title, company, linkedin_url,
   is_curator        -- boolean, default false
-  created_at, approved_at
+  created_at
+
+  -- NO email column. NO status column. NO visibility column.
+  -- Entry via invite code is the gate; there is no pending/approved state and
+  -- no per-member privacy setting. All three were cut deliberately (§6, §7).
 
 conference_series           -- year-over-year identity
   id, name, slug, category, website, aliases (text[])
@@ -134,7 +138,7 @@ conference_cache            -- normalized name -> enrichment result
   id, normalized_query (unique), result (jsonb), created_at
 
 app_settings                -- key/value
-  key, value                -- 'ai_enabled', 'user_cap', 'invite_code_hash'
+  key, value                -- 'ai_enabled', 'member_cap', 'invite_code_hash'
 ```
 
 Notes:
@@ -143,75 +147,95 @@ Notes:
 - `conference_series` exists so that January doesn't require re-entering the catalog.
   Money20/20 2026 and Money20/20 2027 are two `conferences` rows sharing one series.
 - `aliases` on the series is what powers duplicate detection.
+- `members.auth_user_id` links to a Supabase **anonymous** auth user. That anonymous
+  session is what RLS keys on — the security model is unchanged, only the way identity
+  is established.
 
 ---
 
-## 6. Auth and access control
+## 6. Access — invite code, no accounts
 
-**Sign-up flow:**
-1. Visitor enters email + invite code (code is shared in the CREW community post).
-2. Wrong code → generic failure. Don't reveal whether the email exists.
-3. Correct code → `members` row created with `status='pending'`, curator notified by email.
-4. Curator approves in `/admin` → member receives a magic link and can sign in.
-5. **Hard cap:** if approved member count >= `user_cap` (default 16), new requests are
-   accepted but held, and the requester sees a message saying the pilot is full.
+**There is no email in this app.** No magic links, no SMTP, no notifications, no
+approval queue, no password. A member never receives a message from this system.
 
-**Session:** Supabase magic link. Store the token in localStorage, not cookies, so the
-app works inside an iframe.
+Rationale: the pilot is 16 people the curator already knows personally, sharing which
+public conferences they plan to attend. Email-based auth would add SMTP configuration, a
+verified sending domain, rate limits, deliverability failures against corporate mail
+scanners, and an approval queue — all to protect information that is, by design, shared
+with everyone who gets in. The invite code is the gate. That is proportionate.
 
-**Every route except `/login` and `/pending` requires an approved session.**
-Enforce this in Postgres RLS, not only in the app layer. A member with `status='pending'`
-can read nothing.
+**Entry flow:**
+1. Visitor opens the app and enters the shared invite code (distributed by the curator
+   directly — text, DM, or the CREW post).
+2. Wrong code → generic failure, with a short delay. No hint about what's wrong.
+3. Correct code → `supabase.auth.signInAnonymously()` creates an anonymous session, and
+   a `members` row is created linked to that anonymous user. Straight into onboarding.
+4. **Hard cap:** if member count >= `member_cap` (default 16), the code stops working
+   and the visitor sees a message that the pilot is full.
+
+**Returning members.** The session lives in localStorage and persists. If it's lost
+(cleared browser, new device), the member re-enters the invite code and is shown the
+list of existing members to pick themselves from — which restores their identity and
+re-links the row to the new anonymous user. Also offer "I'm new here."
+
+Yes, this means a member could pick someone else's name. Among 16 vetted peers viewing
+public conference schedules, that is an acceptable risk and the honest tradeoff for
+deleting the entire account system. Do not add verification to close it.
+
+**Curator.** `is_curator` is set directly in the database by the maintainer. There is no
+in-app promotion path and no self-service route to it.
+
+**Session:** Supabase anonymous auth, token in localStorage, not cookies, so the app
+works inside an iframe.
+
+**RLS still does the work.** Every table's policies key on the anonymous `auth.uid()`
+exactly as they would with email auth. Removing email removes a signup flow, not the
+security model. Anyone without a valid session reads nothing.
 
 ---
 
-## 7. Visibility rules — implement exactly
+## 7. Visibility — everyone sees everything
 
-Each member has one global setting:
+**There is no visibility setting.** Every member sees every other member's conferences,
+by name. Full stop.
 
-- `all_members` — my conferences are visible to any approved member **(default)**
-- `co_attendees` — my conferences are visible only to members attending that same
-  conference (opt-in)
+This was cut deliberately after being specced. The earlier design had two modes, partial
+name lists, and a count that intentionally disagreed with the names shown. It was the
+most bug-prone part of the spec and the highest-consequence place to get something
+wrong — and it protected almost nothing, because CREW exists for members to meet each
+other and the app is opt-in at the row level.
 
-**Open by default is deliberate.** CREW exists for members to meet each other, and an app
-that hides who's going by default works against that. Full visibility is the norm here;
-`co_attendees` is an escape hatch for the occasional member who wants one, not the
-expected setting. Do not present the two options as balanced or symmetrical anywhere in
-the UI — the second is a narrowing of a sensible default.
+**The privacy control is not adding the conference.** A member who doesn't want their
+attendance known simply doesn't add it. That is sufficient, and it is the whole model.
 
-There is no "private" state. If a member doesn't want their attendance known, they
-don't add the conference.
+Consequences, all of them simplifications:
 
-**On a conference page, viewer V looking at conference C:**
+- Attendee counts always equal the number of names shown. If they ever differ, that's
+  a bug, not a feature.
+- `/c/[slug]` shows the full roster to any member.
+- `/m/[id]` shows all of that member's conferences.
+- No `visibility` column, no toggle in `/me`, no conditional logic anywhere.
 
-- **The attendee count is always the true total**, regardless of visibility.
-- **Names shown** = attendees with `visibility='all_members'`, plus — only if V is also
-  attending C — every other attendee of C.
-- So a non-attendee may see "9 going" with 6 names listed. This is intended. Do not
-  fudge the count to match the visible names.
+**Meetups** are visible to attendees of the parent conference, plus curators read-only
+so they can flag one official. This is the only remaining conditional-visibility rule
+in the app — keep it simple and don't let it grow.
 
-**On a member page, viewer V looking at member M:**
-
-- If `M.visibility='all_members'` → show all of M's conferences.
-- If `M.visibility='co_attendees'` → show only conferences V and M both attend.
-
-**Meetups are visible only to attendees of the parent conference**, with one exception:
-curators can read all meetups, so they can flag one official without having to attend.
-Curators can read only — they cannot create, edit, or RSVP to meetups they aren't part of.
-
-Write tests for this section. It's the part where a bug is a privacy incident rather
-than an inconvenience.
+Do not reintroduce a visibility setting without an actual member asking for one.
 
 ---
 
 ## 8. Screens
 
-### `/login`
-Email + invite code. Below the form, a live teaser: three conferences with attendee
-counts only, no names. This is the hook — show that the room isn't empty.
+### `/enter`
+One field: the invite code. No email, no password. Below it, a live teaser — three
+conferences with attendee counts only, no names. This is the hook: show the room isn't
+empty before asking for anything.
 
-### `/pending`
-Holding state. Plain, no spinner theater. "Your request is with the organizer."
+On success, an anonymous session is created and the member goes straight to onboarding.
+Returning members who've lost their session get a "I've been here before" link that
+shows the member list to pick their name from (§6).
+
+`/login` and `/pending` no longer exist. Delete them.
 
 ### `/onboarding` — conferences first, profile later
 
@@ -227,9 +251,9 @@ A name is the minimum needed for anyone else to recognize them.
 
 **Step 2 — "What conferences are you going to?"** The seeded catalog as a tap-to-toggle
 list, same interaction as the year grid. A visible **Skip for now** option. Below the
-list, one plain sentence: *"Other CREW members will see you're going. You can narrow this
-in settings."* That single sentence is the entire visibility disclosure at onboarding —
-do not present the two-option visibility choice here, just default to `all_members`.
+list, one plain sentence: *"Other CREW members will see you're going."* That's the whole
+disclosure. There is no visibility choice to present (§7) — if a member doesn't want a
+conference known, they don't add it.
 
 **Step 3 — The payoff.** Immediately after step 2, show what they just unlocked:
 - *"You're going to Money20/20 with 4 other CREW members."* — names and titles listed
@@ -241,8 +265,8 @@ do not present the two-option visibility choice here, just default to `all_membe
 clear it's optional: *"Help people recognize you."* A skip lands them on `/` regardless.
 Anyone who skips gets a dismissible prompt on `/` until they complete it.
 
-Visibility lives in `/me`, not in onboarding. It has a safe default and asking about it
-up front costs more attention than it's worth.
+Nothing else is asked at onboarding. No email, no visibility setting, no account
+creation — the invite code was the gate and it's already been passed.
 
 ### `/` — home (the centerpiece)
 
@@ -282,10 +306,10 @@ avatars, count, and a check circle.
 ### `/c/[slug]` — conference detail
 Header: name, dates, city, website link. Primary button toggles attendance.
 If attending, an inline field for the free-text note ("In Sun–Wed, free Tuesday evening").
-Then the roster per §7 rules, then meetups.
+Then the full roster — every attendee, by name — then meetups.
 
 ### `/m/[id]` — member card (deliberately thin)
-Name, title, company, initials avatar, shared/visible conferences per §7, and an
+Name, title, company, initials avatar, all of that member's conferences, and an
 outbound LinkedIn link. **No bio, no photos, no messaging, no activity feed.**
 This is a footnote, not a directory.
 
@@ -296,11 +320,12 @@ Two toggles: **Mine** and **All CREW**.
   tapping a day lists them below. Do not attempt bars in a 380px grid.
 
 ### `/me`
-Profile fields, visibility setting, list of your conferences with notes, sign out,
-and a working "delete my account and data" button.
+Profile fields, list of your conferences with notes, and a working "delete me and my
+data" button. **No visibility setting** (§7). No sign-out — there's no account to sign
+out of; deletion is the exit.
 
 ### `/admin` (curator only)
-Member approval queue · conference review queue (unverified entries) · duplicate merge
+Member list (with remove) · conference review queue (unverified entries) · duplicate merge
 tool · AI kill switch · user cap. Functional, not pretty.
 
 ---
@@ -341,7 +366,7 @@ marker is not optional.
 
 - Key lives in `ANTHROPIC_API_KEY`, server-side only. **Never** `NEXT_PUBLIC_*`.
   All calls go through one server route. No client ever touches the key.
-- Route rejects any request without an approved member session.
+- Route rejects any request without a valid member session.
 - **Per-member limit:** 10 lookups per rolling 24h.
 - **Global limit:** 40 lookups per day across all users. (At ~$0.034 per lookup this
   caps worst-case exposure near $40/month. 16 members will not come close.)
@@ -392,22 +417,24 @@ the meetup first.
 Do not integrate with Circle now — it requires an admin's cooperation and a paid API tier.
 Just don't foreclose it:
 
-- Members keyed on CREW email (§2.5)
+- Members self-identify by name; mapping 16 names to CREW identities at migration is a
+  one-time reconciliation (§2.5)
 - Token auth, iframe-safe (§2.3)
 - Keep auth logic in one module so it can be swapped for SSO later
 - No profile data that would need migrating — that's why member pages are thin
 
 ---
 
-## 12. Email (Resend)
+## 12. Email — none
 
-Required: magic link, "you've been approved."
-Milestone 4: weekly digest of new attendees on your conferences; a single nudge three
-weeks before a conference with ≥3 attendees and no meetup, with a one-tap link to
-propose one.
+**This app sends no email.** No auth emails, no notifications, no digests, no approval
+messages. Resend is not a dependency. `RESEND_API_KEY` is not an environment variable.
+Supabase SMTP is not configured because nothing uses it.
 
-That nudge email is probably responsible for most of the value the app produces.
-Every non-transactional email needs a working unsubscribe.
+The curator communicates with the 16 pilot members directly, outside the app.
+
+If a future version needs email, that's a decision to make then, with a reason. Do not
+add a notification system because it seems expected.
 
 ---
 
@@ -449,6 +476,13 @@ plus `All` and `Mine`.
 
 ## 14. Explicitly out of scope
 
+**Cut after being specced** — these were designed, then removed. Reintroducing one means
+re-opening a settled decision, not proposing a new idea:
+- Email of any kind, including magic-link auth (§6, §12)
+- Per-member visibility settings (§7)
+- Pending/approved member states and the approval queue (§6)
+
+
 Do not build these, even if they seem like natural extensions:
 
 - In-app messaging or chat of any kind
@@ -466,19 +500,19 @@ Do not build these, even if they seem like natural extensions:
 
 ## 15. Build order
 
-**M1 — Skeleton.** Next.js + Supabase + Tailwind. Schema and RLS. Magic-link auth,
-invite code, pending state, admin approval queue. Deployed to Vercel.
+**M1 — Skeleton.** Next.js + Supabase + Tailwind. Schema and RLS. Invite code +
+anonymous session. Deployed to Vercel.
 
 **M2 — The core loop.** Seed the catalog. Home screen with tap-to-toggle. Conference
 detail with roster. `/me`. **Member-added conferences with AI lookup** (§9, moved up
 from M4 — without it, a member whose conference isn't seeded hits a dead end at exactly
-the moment the app is supposed to prove itself). Visibility rules with tests. This is
-the point where the app is genuinely usable and worth showing someone.
+the moment the app is supposed to prove itself). This is the point where the app is
+genuinely usable and worth showing someone.
 
 **M3 — Meetups.** Poll → confirm state machine. Un-attend cascade. Official flag.
 Secondary priority per §10.
 
-**M4 — Everything else.** Calendar views. Member cards. Digest and nudge emails.
+**M4 — Everything else.** Calendar views. Member cards.
 
 Do not start M2 until auth and RLS are verified working. Do not start M3 until a real
 person has used M2 and entered at least one conference.
@@ -491,9 +525,10 @@ person has used M2 and entered at least one conference.
 - [ ] `.env` gitignored; secrets only in Vercel environment variables
 - [ ] RLS policies written by hand and read line by line — not accepted unreviewed.
       A mistake here means every member can read every other member's travel plans.
-- [ ] Visibility rules (§7) covered by tests
+- [ ] Invite code stored **hashed** in `app_settings`, never readable by a client
 - [ ] Anthropic key server-side only, spend limit set in Console
 - [ ] Privacy policy and terms pages, even for a PoC
-- [ ] Working account-and-data deletion
-- [ ] Rate limiting on the magic-link endpoint
+- [ ] Working member-and-data deletion
+- [ ] Rate limiting + delay on the invite-code endpoint — it's the only gate, so
+      brute-forcing it must be slow and logged
 - [ ] No real CREW member data in seed files, fixtures, or commits

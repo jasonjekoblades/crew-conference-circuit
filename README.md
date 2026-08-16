@@ -48,8 +48,7 @@ that other harnesses (Cursor, Codex, Copilot) should pick up.
 | Framework | Next.js (App Router) + TypeScript | Vercel deploy, server routes for API-key work |
 | Styling | Tailwind + shadcn/ui | Fast, and design tokens stay in one file |
 | Database | Supabase (Postgres) | Row Level Security is the security model here |
-| Auth | Supabase magic links | No passwords, ever |
-| Email | Resend | Currently stubbed |
+| Auth | Supabase anonymous sessions + one invite code | No email, no accounts |
 | Hosting | Vercel | |
 | AI | Claude Haiku 4.5 + web search | Conference lookup only, server-side only |
 
@@ -75,8 +74,9 @@ cp .env.example .env.local   # then fill in the values below
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Safe to expose — RLS is what protects data |
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Bypasses RLS entirely. Never prefix with `NEXT_PUBLIC_` |
 | `ANTHROPIC_API_KEY` | **server only** | Conference lookup. Set a monthly spend cap in the Anthropic Console |
-| `INVITE_CODE` | server only | Hashed into `app_settings` on seed |
-| `CURATOR_EMAIL` | server only | Seeded as the first approved curator |
+| `INVITE_CODE` | server only | Hashed into `app_settings` on seed. The only gate. |
+
+No email service credentials. The app sends no email.
 
 > Any secret that reaches the browser is compromised. `NEXT_PUBLIC_` is the tripwire —
 > if you're adding it to a variable name, stop and reconsider.
@@ -86,7 +86,7 @@ cp .env.example .env.local   # then fill in the values below
 ```bash
 supabase link --project-ref <your-ref>
 supabase db push          # applies migrations in supabase/migrations/
-npm run seed              # loads the conference catalog + curator account
+npm run seed              # loads the conference catalog + hashes the invite code
 ```
 
 ### Run
@@ -115,21 +115,24 @@ Consequences:
   signup (after invite-code check), seeding, and the AI lookup route. Nothing else.
 - Client-side checks are UX, never security. Assume every client is hostile.
 
-### Visibility rules
+### Access model
 
-The one piece of logic worth understanding before reading any code. Each member has a
-global setting:
+**No accounts and no email.** One shared invite code, distributed by the curator
+directly. Entering it creates a Supabase *anonymous* session and a `members` row. There
+is no signup, no approval queue, no password, and no magic link.
 
-- **`all_members`** *(default)* — my conferences are visible to any approved member
-- **`co_attendees`** — visible only to members attending the same conference
+Identity is therefore device-bound. A member who clears their browser re-enters the code
+and picks their name from a list to restore it. This is spoofable in principle; among 16
+vetted peers viewing public conference schedules, it's the accepted tradeoff for
+deleting the entire account system. Don't add verification to close it.
 
-On a conference page: **the attendee count is always the true total**, but names shown
-are only the `all_members` attendees — plus, if the viewer is also attending, everyone.
-So a non-attendee can legitimately see "9 going" with 6 names listed. That's intended.
-Do not "fix" it by making the count match the names.
+**Everyone sees everything.** There is no per-member visibility setting. Every member
+sees every other member's conferences by name, and attendee counts always equal the
+number of names shown — if they ever differ, that's a bug. The privacy control is simply
+not adding a conference you don't want known.
 
-Full rules in `CLAUDE.md` §7. There's a repeatable verification script under
-`supabase/` — run it after any change to these policies.
+Both of these were specced in more elaborate form and deliberately cut. See `CLAUDE.md`
+§6 and §7 for the reasoning before proposing either back.
 
 ### Why localStorage, not cookies
 
@@ -175,22 +178,20 @@ README.md              This file
 src/
   app/                 Next.js App Router
     page.tsx           Home — the core loop. The screen that matters.
-    login/             Invite code + magic link
-    pending/           Awaiting approval
+    enter/             Invite code — the only gate
     onboarding/        Name → conferences → payoff → optional profile
-    c/[slug]/          Conference detail + roster
+    c/[slug]/          Conference detail + full roster
     m/[id]/            Member card (deliberately thin)
-    me/                Profile, visibility, sign out
-    admin/             Curator: approval queue, AI kill switch
-    auth/callback/     Magic link handler
-    api/               Server routes (signup, AI lookup)
+    me/                Profile, your conferences, delete
+    admin/             Curator: member list, AI kill switch
+    api/               Server routes (enter, AI lookup)
   styles/tokens.css    ALL colors and type scale. One file, on purpose.
 
 supabase/
   migrations/          Schema + RLS. Policies live with their tables.
   VERIFY.md            Manual verification walkthrough
 
-scripts/seed.ts        Conference catalog + curator account
+scripts/seed.ts        Conference catalog + invite code hash
 reference/             Wireframe, seed data, original build prompts
 ```
 
@@ -213,11 +214,11 @@ reference/             Wireframe, seed data, original build prompts
 
 Two checks carry disproportionate weight:
 
-1. **Visibility rules.** Run the verification script in `supabase/`. It seeds test
-   members with mixed settings and prints a grid of who-sees-what. A bug here is a
+1. **RLS holds.** Run `npm run test:visibility`. It seeds test members and confirms a
+   valid session reads the full roster while no session reads nothing. A bug here is a
    privacy incident, not a glitch.
-2. **A pending member reads nothing.** Sign up with a second real email, don't approve
-   it, and confirm every table returns zero rows. `supabase/VERIFY.md` has the steps.
+2. **No session reads nothing.** Open the app without entering the invite code and
+   confirm every table returns zero rows. `supabase/VERIFY.md` has the steps.
 
 ---
 
@@ -234,14 +235,15 @@ they are not part of the Vercel build.
 
 | | | |
 |---|---|---|
-| M1 | Auth, schema, RLS, admin approval | ✅ Complete |
+| M1 | Access, schema, RLS | ✅ Complete (auth model revised — see §6) |
 | M2 | Core loop: home, conference detail, onboarding, member-added conferences | 🔨 In progress |
 | M3 | Meetups — poll → confirm, un-attend cascade, official flag | Not started |
-| M4 | Calendar views, member cards, digest emails | Not started |
+| M4 | Calendar views, member cards | Not started |
 
 **Explicitly out of scope**, and likely to stay that way: in-app messaging, photo
 uploads, a "considering" attendance state, session-level matching, calendar sync,
-capacity caps, rich profiles, monetization, native apps. See `CLAUDE.md` §14 — several
+capacity caps, rich profiles, monetization, native apps, email of any kind, and
+per-member visibility settings. See `CLAUDE.md` §14 — several
 of these were considered and deliberately rejected, so proposing them means re-opening a
 settled decision rather than raising a new idea.
 
@@ -249,8 +251,9 @@ settled decision rather than raising a new idea.
 
 ## Known gaps
 
-- **Approval notification emails are stubbed.** Approved members aren't told
-  automatically; the curator contacts them directly. Fine at 16 users, not beyond.
+- **No email at all, by design.** The curator distributes the invite code and contacts
+  members directly. Fine at 16 users; a real deployment inside Circle would inherit
+  identity and notifications from Circle.
 - **Design tokens are placeholder navy.** Real CREW brand values pending.
 - **No automated test suite yet.** Verification is currently script-driven and manual.
 - **No CREW member data.** Everything in the seed catalog is public conference

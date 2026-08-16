@@ -28,19 +28,21 @@ resolving ambiguity, the core loop wins.
 - **Auth tokens in localStorage, not cookies.** Do not migrate to `@supabase/ssr` or
   cookie sessions. The app must survive being iframed into a third-party community
   platform where third-party cookies are blocked.
-- **No passwords.** Magic links only.
+- **No email, no accounts, no passwords.** One shared invite code creates a Supabase
+  anonymous session. Do not add signup, approval states, or notifications (§6, §12).
 - **`SUPABASE_SERVICE_ROLE_KEY` and `ANTHROPIC_API_KEY` are server-side only.** Never
   prefix either with `NEXT_PUBLIC_`.
 - **Never hardcode colors.** Everything lives in `src/styles/tokens.css`.
 - **No real member data in this repo.** Seed catalog is public conference info only.
-- **Never build messaging.** Explicitly and permanently out of scope.
+- **Never build messaging or notifications.** Explicitly and permanently out of scope.
 
-## The rule people get wrong
+## Two things that were cut on purpose
 
-Attendee counts always show the true total, but names shown depend on each attendee's
-visibility setting. A non-attendee seeing "9 going" with 6 names is **correct behavior**,
-not a bug. Read `CLAUDE.md` §7 before touching anything related to this, and re-run the
-verification script under `supabase/` afterward.
+**Email** (§6, §12) and **per-member visibility settings** (§7). Both were fully specced
+and then deliberately removed as disproportionate for a 16-person pilot sharing public
+conference schedules. Every member sees every other member's conferences by name, and
+attendee counts always equal the number of names shown. If you find yourself adding a
+notification, a signup flow, or a privacy toggle, stop and read those sections.
 
 ## Working style
 
