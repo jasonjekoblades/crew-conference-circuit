@@ -11,9 +11,21 @@
 -- app_settings which get zero policies for anon/authenticated — enabling
 -- RLS with no policy means "nobody except the service role (which bypasses
 -- RLS entirely) can touch this," which is exactly what we want until M4.
+--
+-- Every table ALSO gets an explicit `grant select, insert, update, delete
+-- ... to service_role`. This looks redundant with "bypasses RLS entirely"
+-- above, but it isn't: service_role's `BYPASSRLS` attribute only skips
+-- POLICY checks. Postgres checks ordinary table-level GRANTs first, as a
+-- completely separate layer, and nothing grants those to service_role by
+-- default. Skipping this line is a silent, total outage — every server
+-- route and the seed script all use the service-role client — not a data
+-- leak, so it's easy to not notice until the first real write is attempted.
+-- Confirmed against a live local stack: without this line, service_role got
+-- "permission denied for table members" on a plain insert.
 
 -- members ---------------------------------------------------------------
 alter table members enable row level security;
+grant select, insert, update, delete on members to service_role;
 revoke all on members from anon, authenticated;
 
 -- Row-insert is NOT granted to anon or authenticated at all: signup is
@@ -54,6 +66,7 @@ create policy members_update_own_profile
 
 -- conference_series ---------------------------------------------------------
 alter table conference_series enable row level security;
+grant select, insert, update, delete on conference_series to service_role;
 revoke all on conference_series from anon, authenticated;
 grant select on conference_series to authenticated;
 
@@ -67,6 +80,7 @@ create policy conference_series_select_approved
 
 -- conferences ---------------------------------------------------------------
 alter table conferences enable row level security;
+grant select, insert, update, delete on conferences to service_role;
 revoke all on conferences from anon, authenticated;
 grant select on conferences to authenticated;
 
@@ -101,6 +115,7 @@ create policy conferences_select_curator_all
 -- exists as a separate security-definer function in 0002. Any UI showing a
 -- count must call that function, not count visible rows.
 alter table attendances enable row level security;
+grant select, insert, update, delete on attendances to service_role;
 revoke all on attendances from anon, authenticated;
 grant select on attendances to authenticated;
 
@@ -135,6 +150,7 @@ create policy attendances_select_per_visibility
 -- existing to validate against. Until M3 adds INSERT/UPDATE policies these
 -- tables are visible to conference attendees but nothing can write to them.
 alter table meetups enable row level security;
+grant select, insert, update, delete on meetups to service_role;
 revoke all on meetups from anon, authenticated;
 grant select on meetups to authenticated;
 
@@ -151,6 +167,7 @@ create policy meetups_select_conference_attendees
   );
 
 alter table meetup_slots enable row level security;
+grant select, insert, update, delete on meetup_slots to service_role;
 revoke all on meetup_slots from anon, authenticated;
 grant select on meetup_slots to authenticated;
 
@@ -168,6 +185,7 @@ create policy meetup_slots_select_conference_attendees
   );
 
 alter table meetup_votes enable row level security;
+grant select, insert, update, delete on meetup_votes to service_role;
 revoke all on meetup_votes from anon, authenticated;
 grant select on meetup_votes to authenticated;
 
@@ -185,6 +203,7 @@ create policy meetup_votes_select_conference_attendees
   );
 
 alter table meetup_rsvps enable row level security;
+grant select, insert, update, delete on meetup_rsvps to service_role;
 revoke all on meetup_rsvps from anon, authenticated;
 grant select on meetup_rsvps to authenticated;
 
@@ -206,9 +225,11 @@ create policy meetup_rsvps_select_conference_attendees
 -- The future AI route will use the service role key, which bypasses RLS,
 -- exactly like /api/signup and /api/admin/* do today.
 alter table ai_lookups enable row level security;
+grant select, insert, update, delete on ai_lookups to service_role;
 revoke all on ai_lookups from anon, authenticated;
 
 alter table conference_cache enable row level security;
+grant select, insert, update, delete on conference_cache to service_role;
 revoke all on conference_cache from anon, authenticated;
 
 -- app_settings ---------------------------------------------------------------
@@ -219,4 +240,5 @@ revoke all on conference_cache from anon, authenticated;
 -- or edit user_cap, that goes through a dedicated API route (also service
 -- role), not a relaxed RLS policy on this table.
 alter table app_settings enable row level security;
+grant select, insert, update, delete on app_settings to service_role;
 revoke all on app_settings from anon, authenticated;

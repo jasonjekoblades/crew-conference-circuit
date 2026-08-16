@@ -16,6 +16,7 @@ create index rate_limit_events_bucket_created_idx
   on rate_limit_events (bucket_key, created_at);
 
 alter table rate_limit_events enable row level security;
+grant select, insert, update, delete on rate_limit_events to service_role;
 revoke all on rate_limit_events from anon, authenticated;
 
 -- Housekeeping: rows older than a day are never read by anything (the
