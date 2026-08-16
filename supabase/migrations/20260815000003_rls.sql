@@ -64,6 +64,45 @@ create policy members_update_own_profile
   using (id = auth.uid() and status = 'approved')
   with check (id = auth.uid());
 
+-- member_profiles (view) -----------------------------------------------------
+-- `members` above is intentionally locked to "own row, or curator" — that's
+-- what keeps email/status/approved_at from leaking to other members. But it
+-- means a co-attendee's NAME is invisible too, under the exact same policy,
+-- which silently defeats §7 (confirmed live: reading a visible attendee's
+-- name through a join to `members` returned NULL). This view is the fix:
+-- a second, narrower surface exposing only the columns a roster/member-card
+-- screen actually needs, gated by the same visibility logic as attendances
+-- (own row, or visibility='all_members', or shares a conference with the
+-- caller) via shares_a_conference_with() (0002). No email, no status, no
+-- approved_at — those stay reachable only through `members` itself.
+--
+-- Deliberately WITHOUT security_invoker: this needs to be a security-
+-- DEFINER-style view (like every function in 0002), not invoker-style.
+-- security_invoker=true was tried first and confirmed broken live — it
+-- makes the view's own `from members` query subject to `members`' base RLS
+-- (own-row-only for non-curators) BEFORE this view's WHERE clause ever
+-- runs, so a non-curator got back only their own row no matter what the
+-- WHERE clause said. Omitting security_invoker (the default) makes the
+-- view run its underlying table access as the view's OWNER (the migration
+-- role, which — like the SECURITY DEFINER functions elsewhere — isn't
+-- subject to its own table's RLS), so the WHERE clause below becomes the
+-- only filter that matters. auth.uid() still resolves correctly either way
+-- — it reads a per-session setting, not something privilege-dependent.
+create view public.member_profiles as
+select id, name, title, company, linkedin_url, visibility, is_curator
+from members
+where
+  id = auth.uid()
+  or (
+    public.is_approved_member()
+    and (
+      visibility = 'all_members'
+      or public.shares_a_conference_with(id)
+    )
+  );
+
+grant select on member_profiles to authenticated;
+
 -- conference_series ---------------------------------------------------------
 alter table conference_series enable row level security;
 grant select, insert, update, delete on conference_series to service_role;
@@ -114,6 +153,15 @@ create policy conferences_select_curator_all
 -- be both invisible and counted), which is why conference_attendee_count()
 -- exists as a separate security-definer function in 0002. Any UI showing a
 -- count must call that function, not count visible rows.
+--
+-- Branch (c) calls member_attends_conference() rather than writing the
+-- exists-subquery inline. Confirmed against a live database: a policy on
+-- `attendances` that references `attendances` in its own subquery fails
+-- outright with Postgres error 42P17 ("infinite recursion detected in
+-- policy"), even when the subquery would obviously terminate. That's a
+-- structural restriction on same-table self-reference inside a policy, not
+-- a bug you can query your way around — routing through a security-definer
+-- function (0002) is the actual fix, not a workaround.
 alter table attendances enable row level security;
 grant select, insert, update, delete on attendances to service_role;
 revoke all on attendances from anon, authenticated;
@@ -127,11 +175,7 @@ create policy attendances_select_per_visibility
     and (
       member_id = auth.uid()
       or public.member_visibility(member_id) = 'all_members'
-      or exists (
-        select 1 from attendances viewer_row
-        where viewer_row.conference_id = attendances.conference_id
-          and viewer_row.member_id = auth.uid()
-      )
+      or public.member_attends_conference(conference_id)
     )
   );
 
