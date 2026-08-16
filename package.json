@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "test:visibility": "tsx supabase/tests/visibility-check.ts"
+    "test:access": "tsx supabase/tests/access-check.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

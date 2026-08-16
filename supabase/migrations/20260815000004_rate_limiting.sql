@@ -1,11 +1,15 @@
--- Backs /api/signup's rate limiting (CLAUDE.md §16: "Rate limiting on the
--- magic-link endpoint"). A DB-backed counter rather than in-memory because
--- this runs on Vercel — separate serverless invocations don't share memory,
--- so an in-process counter would silently do nothing in production.
+-- Backs /api/enter's rate limiting (CLAUDE.md §16: "Rate limiting + delay
+-- on the invite-code endpoint — it's the only gate, so brute-forcing it
+-- must be slow and logged"). A DB-backed counter rather than in-memory
+-- because this runs on Vercel — separate serverless invocations don't share
+-- memory, so an in-process counter would silently do nothing in production.
+-- (The "logged" half of that requirement is invite_code_attempts, a
+-- separate permanent audit table added in 0001 — this one is just the
+-- throttle, and gets pruned.)
 --
 -- Locked down exactly like ai_lookups/app_settings: RLS enabled, no
 -- policies granted to anon/authenticated. Only the service role (used by
--- /api/signup) can read or write it.
+-- /api/enter) can read or write it.
 create table rate_limit_events (
   id uuid primary key default gen_random_uuid(),
   bucket_key text not null,

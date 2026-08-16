@@ -1,36 +1,36 @@
 -- CREW Conference Circuit — schema (CLAUDE.md §5)
--- Full data model per the spec. Only members/app_settings/conference_series/
--- conferences/attendances are read or written by anything built in Milestone 1;
--- the meetup_* and ai_* tables exist now (per M1 scope item 2: "schema per §5")
--- but stay inert — no INSERT/UPDATE policy grants them in 0003_rls.sql — until
--- M3 and M4 build the features that write to them.
+-- Full data model per the spec. No email, no status, no visibility column —
+-- all three were specced, built, and then deliberately cut (CLAUDE.md §6,
+-- §7). This migration was rewritten in place rather than layered with
+-- ALTERs: nothing has been deployed to a real Supabase project yet, so
+-- there's no data to preserve and no reason to keep the old shape around.
 
 create extension if not exists pgcrypto;
 
 -- members ---------------------------------------------------------------
--- id IS the Supabase auth user id (not a separate uuid). The member row is
--- created at signup time via the service role, before any email is sent —
--- see src/lib/supabase/admin.ts and the /api/signup route — specifically so
--- auth.uid() can be compared directly against members.id everywhere below,
--- with no separate mapping table.
+-- id is now a separate, STABLE uuid — deliberately NOT the same as the
+-- linked auth user's id, unlike the previous (email-based) design. Why:
+-- auth_user_id can change — a member who loses their session re-enters the
+-- invite code and "relinks" an existing row to a new anonymous auth user
+-- (CLAUDE.md §6) — while id must stay fixed forever, since attendances/
+-- conferences.created_by/meetups.host_id all reference it. auth_user_id is
+-- nullable specifically so the founding member can be seeded (name +
+-- attendance already populated) before they've ever opened the app —
+-- their row just sits unlinked until they pick their own name via the
+-- "I've been here before" flow, the same mechanism anyone uses to recover
+-- a lost session.
 create table members (
-  id uuid primary key references auth.users (id) on delete cascade,
-  email text not null unique,
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid unique references auth.users (id) on delete set null,
   name text,
   title text,
   company text,
   linkedin_url text,
-  status text not null default 'pending'
-    check (status in ('pending', 'approved', 'rejected')),
-  visibility text not null default 'all_members'
-    check (visibility in ('all_members', 'co_attendees')),
   is_curator boolean not null default false,
-  created_at timestamptz not null default now(),
-  approved_at timestamptz,
-  constraint members_email_lowercase check (email = lower(email))
+  created_at timestamptz not null default now()
 );
 
-create index members_status_idx on members (status);
+create index members_auth_user_id_idx on members (auth_user_id);
 
 -- conference_series -------------------------------------------------------
 create table conference_series (
@@ -168,3 +168,19 @@ create table app_settings (
   key text primary key,
   value text not null
 );
+
+-- invite_code_attempts --------------------------------------------------
+-- CLAUDE.md §16: the invite code is now the ONLY gate (no accounts, no
+-- email), so brute-forcing it "must be slow and logged." rate_limit_events
+-- (0004) is the generic sliding-window counter that actually throttles
+-- attempts; this is a separate, permanent audit trail — every attempt,
+-- success or failure, with no pruning — for the curator to eyeball if they
+-- ever suspect the code leaked or is being guessed.
+create table invite_code_attempts (
+  id uuid primary key default gen_random_uuid(),
+  ip text not null,
+  success boolean not null,
+  created_at timestamptz not null default now()
+);
+
+create index invite_code_attempts_created_at_idx on invite_code_attempts (created_at);

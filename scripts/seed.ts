@@ -1,7 +1,14 @@
 /**
  * One-time / idempotent seed script. Run with `npm run seed` after filling
  * in .env.local (needs SUPABASE_SERVICE_ROLE_KEY, INVITE_CODE, and
- * CURATOR_EMAIL — see .env.example).
+ * FOUNDING_MEMBER_NAME — see .env.example).
+ *
+ * No more auth.admin.createUser() call: there's no email to key a founding
+ * member on anymore, and members.auth_user_id is nullable specifically so
+ * this script can seed a fully-formed member (name, profile, attendance)
+ * with NO linked auth user at all — they link it themselves the first time
+ * they open the app, via /enter's "I've been here before" picker, same
+ * mechanism anyone uses to recover a lost session (CLAUDE.md §6).
  *
  * Does NOT import from src/lib — those files pull in the `server-only`
  * package, which only enforces itself inside Next's bundler. Running them
@@ -25,8 +32,8 @@ function requireEnv(name: string): string {
 const SUPABASE_URL = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 const INVITE_CODE = requireEnv("INVITE_CODE");
-const CURATOR_EMAIL = requireEnv("CURATOR_EMAIL").trim().toLowerCase();
-const USER_CAP = process.env.USER_CAP ? parseInt(process.env.USER_CAP, 10) : 16;
+const FOUNDING_MEMBER_NAME = requireEnv("FOUNDING_MEMBER_NAME").trim();
+const MEMBER_CAP = process.env.MEMBER_CAP ? parseInt(process.env.MEMBER_CAP, 10) : 16;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -70,13 +77,13 @@ async function main() {
   const { error: settingsError } = await supabase.from("app_settings").upsert(
     [
       { key: "invite_code_hash", value: inviteCodeHash },
-      { key: "user_cap", value: String(USER_CAP) },
+      { key: "member_cap", value: String(MEMBER_CAP) },
       { key: "ai_enabled", value: "false" },
     ],
     { onConflict: "key" }
   );
   if (settingsError) throw settingsError;
-  console.log(`app_settings: invite code set, user_cap=${USER_CAP}, ai_enabled=false`);
+  console.log(`app_settings: invite code set, member_cap=${MEMBER_CAP}, ai_enabled=false`);
 
   // --- conference_series ------------------------------------------------
   const seriesIdBySlug = new Map<string, string>();
@@ -126,40 +133,33 @@ async function main() {
   }
   console.log(`conferences: ${conferenceIdBySlugYear.size} upserted`);
 
-  // --- curator / founding member -----------------------------------------
+  // --- founding member (curator) -----------------------------------------
+  // No auth_user_id yet — nothing to link to until they open the app and
+  // pick their own name via /enter's returning-member picker.
   const { data: existingMember } = await supabase
     .from("members")
-    .select("id, status, is_curator")
-    .eq("email", CURATOR_EMAIL)
+    .select("id, is_curator")
+    .eq("name", FOUNDING_MEMBER_NAME)
+    .is("auth_user_id", null)
     .maybeSingle();
 
   let curatorId: string;
   if (existingMember) {
     curatorId = existingMember.id;
-    const { error } = await supabase
-      .from("members")
-      .update({ status: "approved", is_curator: true, visibility: "all_members", approved_at: new Date().toISOString() })
-      .eq("id", curatorId);
-    if (error) throw error;
-    console.log(`members: ${CURATOR_EMAIL} already existed — ensured approved + curator`);
+    if (!existingMember.is_curator) {
+      const { error } = await supabase.from("members").update({ is_curator: true }).eq("id", curatorId);
+      if (error) throw error;
+    }
+    console.log(`members: ${FOUNDING_MEMBER_NAME} already seeded — ensured is_curator`);
   } else {
-    const { data: created, error: createUserError } = await supabase.auth.admin.createUser({
-      email: CURATOR_EMAIL,
-      email_confirm: false,
-    });
-    if (createUserError || !created?.user) throw createUserError ?? new Error("createUser returned no user");
-    curatorId = created.user.id;
-
-    const { error: insertError } = await supabase.from("members").insert({
-      id: curatorId,
-      email: CURATOR_EMAIL,
-      status: "approved",
-      is_curator: true,
-      visibility: "all_members",
-      approved_at: new Date().toISOString(),
-    });
-    if (insertError) throw insertError;
-    console.log(`members: created curator ${CURATOR_EMAIL}`);
+    const { data: created, error: insertError } = await supabase
+      .from("members")
+      .insert({ name: FOUNDING_MEMBER_NAME, is_curator: true })
+      .select("id")
+      .single();
+    if (insertError || !created) throw insertError ?? new Error("insert returned no row");
+    curatorId = created.id;
+    console.log(`members: seeded founding member/curator ${FOUNDING_MEMBER_NAME}`);
   }
 
   // --- founding member's seeded attendance -----------------------------
@@ -177,7 +177,9 @@ async function main() {
     console.log(`attendances: seeded ${attendanceRows.length} rows for the founding member`);
   }
 
-  console.log("\nDone. Sign in at /login with the curator email and the invite code.");
+  console.log(
+    `\nDone. Go to /enter, enter the invite code, choose "I've been here before," and pick "${FOUNDING_MEMBER_NAME}."`
+  );
 }
 
 main().catch((err) => {

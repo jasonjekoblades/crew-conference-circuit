@@ -6,13 +6,10 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 export type Member = {
   id: string;
-  email: string;
   name: string | null;
   title: string | null;
   company: string | null;
   linkedin_url: string | null;
-  status: "pending" | "approved" | "rejected";
-  visibility: "all_members" | "co_attendees";
   is_curator: boolean;
 };
 
@@ -23,17 +20,16 @@ type MemberSessionState =
 
 /**
  * Client-side counterpart to the RLS enforcement in supabase/migrations.
- * CLAUDE.md §6 is explicit that RLS is the real boundary ("Enforce this in
- * Postgres RLS, not only in the app layer") — this hook exists purely for
- * UX routing (send people to the right screen), not as a security control.
+ * CLAUDE.md §6 is explicit that RLS is the real boundary — this hook exists
+ * purely for UX routing (send people to the right screen), not as a
+ * security control.
  *
- * Only 'approved' members ever obtain a session in this app's design: a
- * magic link is sent only after /api/admin/approve or a repeat /api/signup
- * call for an already-approved email, so a 'pending' or 'rejected' member
- * has an auth.users row but has never received a link to click. Because of
- * that, a real session here always corresponds to an approved member —
- * "onboarded or not" (member.name is null until /onboarding is completed)
- * is the only routing distinction left to make once status is ready.
+ * "anonymous" covers two distinct underlying states that both need the same
+ * treatment (send them to /enter): no Supabase session at all, OR a
+ * Supabase anonymous session that exists but has no members row linked to
+ * it yet (auth_user_id never matched — e.g. they closed the tab mid-/enter,
+ * or opened a stale tab from before a relink). Either way there's nothing
+ * useful to show them until /enter links a members row to this auth.uid().
  */
 export function useMemberSession(): MemberSessionState {
   const [state, setState] = useState<MemberSessionState>({ status: "loading" });
@@ -50,8 +46,8 @@ export function useMemberSession(): MemberSessionState {
 
     const { data: member, error } = await supabase
       .from("members")
-      .select("id, email, name, title, company, linkedin_url, status, visibility, is_curator")
-      .eq("id", session.user.id)
+      .select("id, name, title, company, linkedin_url, is_curator")
+      .eq("auth_user_id", session.user.id)
       .maybeSingle();
 
     if (error || !member) {

@@ -3,12 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Service-role Supabase client. Bypasses RLS entirely — this is the ONLY
- * client allowed to touch app_settings (invite code hash, user cap) or
- * create members rows outside a user's own session. `import "server-only"`
- * makes any accidental client-component import a build error rather than a
- * leaked key.
+ * client allowed to touch app_settings (invite code hash, member cap) or
+ * create/relink members rows outside a user's own session. `import
+ * "server-only"` makes any accidental client-component import a build
+ * error rather than a leaked key.
  *
- * Used by: /api/signup, /api/admin/*, and scripts/seed.ts. Never imported
+ * Used by: /api/enter/*, /api/admin/*, and scripts/seed.ts. Never imported
  * from a page or client component.
  */
 export function createAdminSupabaseClient() {

@@ -8,8 +8,9 @@ import { createClient } from "@supabase/supabase-js";
  * persists to localStorage (the default storage for supabase-js in a
  * browser context) and never touches cookies.
  *
- * PKCE flow: magic link emails redirect to /auth/callback with a `code`
- * param, exchanged for a session client-side. See src/app/auth/callback.
+ * Auth is anonymous (CLAUDE.md §6) — supabase.auth.signInAnonymously()
+ * returns a session directly, no redirect/callback flow involved, so there's
+ * no flowType/detectSessionInUrl concern the way a magic link would have.
  */
 export function createBrowserSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,10 +24,8 @@ export function createBrowserSupabaseClient() {
 
   return createClient(url, anonKey, {
     auth: {
-      flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false,
     },
   });
 }
