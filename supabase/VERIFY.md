@@ -1,9 +1,23 @@
-# Verifying RLS: "a pending member's session can read nothing"
+# Verifying RLS
 
 This is M1 acceptance criterion 7, and the one that actually matters — the
 UI can look right while the database quietly hands out more than it should.
-This walks through checking it directly in the Supabase dashboard, not
-through the app.
+
+**For local development, run `npm run test:visibility` first** (needs
+`supabase start`, i.e. Docker running). It's a real, repeatable script —
+`supabase/tests/visibility-check.ts` — that creates real auth users, mints
+real signed session tokens, and hits the actual REST API with them, printing
+a plain-language grid of who sees what plus a recursion/timing check. Run it
+after ANY change to `attendances`' policy, `member_profiles`, or the helper
+functions in `supabase/migrations/`. It has already caught two real bugs
+this way (a self-reference recursion error, and a view that silently
+returned nothing for anyone but the caller) that reading the SQL never
+would have.
+
+That script only works against a local stack, though — it can't reach a
+real deployed Supabase project. For checking the actual production database
+(after `npm run seed` has been run against it), use the manual dashboard
+walkthrough below instead.
 
 ## Why you can't just log in as a pending member
 
@@ -74,10 +88,15 @@ select * from attendances;                       -- only rows visible per §7 (o
                                                    -- all_members-visibility attendees, or
                                                    -- fellow attendees of a conference they're
                                                    -- also on) — NOT every attendance row
+select * from member_profiles;                    -- names resolve for exactly the same set
+                                                   -- of members as the attendances rows above
+                                                   -- (own row, or all_members, or a shared
+                                                   -- conference) — never email/status
 rollback;
 ```
 
 If `select * from attendances` under an approved-but-non-curator member ever
 returns a row for someone whose `visibility` is `co_attendees` and who
 doesn't share a conference with the simulated member, that's the bug this
-whole exercise exists to catch.
+whole exercise exists to catch. Same for `member_profiles` returning a name
+for someone the `attendances` query above didn't also return a row for.
