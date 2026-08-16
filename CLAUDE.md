@@ -92,7 +92,7 @@ Match its density and restraint.
 members
   id, email (unique, lowercased), name, title, company, linkedin_url,
   status            -- 'pending' | 'approved' | 'rejected'
-  visibility        -- 'all_members' | 'co_attendees'   DEFAULT 'co_attendees'
+  visibility        -- 'all_members' | 'co_attendees'   DEFAULT 'all_members'
   is_curator        -- boolean, default false
   created_at, approved_at
 
@@ -169,9 +169,15 @@ can read nothing.
 
 Each member has one global setting:
 
-- `all_members` — my conferences are visible to any approved member
+- `all_members` — my conferences are visible to any approved member **(default)**
 - `co_attendees` — my conferences are visible only to members attending that same
-  conference **(default)**
+  conference (opt-in)
+
+**Open by default is deliberate.** CREW exists for members to meet each other, and an app
+that hides who's going by default works against that. Full visibility is the norm here;
+`co_attendees` is an escape hatch for the occasional member who wants one, not the
+expected setting. Do not present the two options as balanced or symmetrical anywhere in
+the UI — the second is a narrowing of a sensible default.
 
 There is no "private" state. If a member doesn't want their attendance known, they
 don't add the conference.
@@ -189,7 +195,9 @@ don't add the conference.
 - If `M.visibility='all_members'` → show all of M's conferences.
 - If `M.visibility='co_attendees'` → show only conferences V and M both attend.
 
-**Meetups are visible only to attendees of the parent conference.** No exceptions.
+**Meetups are visible only to attendees of the parent conference**, with one exception:
+curators can read all meetups, so they can flag one official without having to attend.
+Curators can read only — they cannot create, edit, or RSVP to meetups they aren't part of.
 
 Write tests for this section. It's the part where a bug is a privacy incident rather
 than an inconvenience.
@@ -205,19 +213,60 @@ counts only, no names. This is the hook — show that the room isn't empty.
 ### `/pending`
 Holding state. Plain, no spinner theater. "Your request is with the organizer."
 
-### `/onboarding`
-Name, title, company, LinkedIn URL (optional), visibility choice.
-Explain the two visibility options in one plain sentence each — don't make people
-guess what `co_attendees` means. Then drop them straight into `/`.
+### `/onboarding` — conferences first, profile later
 
-### `/` — the year grid (the centerpiece)
+**This is the most important flow in the app.** A new member must reach the payoff — seeing
+another member's name next to a conference — in under 60 seconds and without filling in a
+profile. Do not front-load profile fields. Do not ask for anything that isn't required to
+show them something useful.
 
-Two sections:
+Four steps:
 
-1. **Where CREW is going** — conferences with ≥1 attendee, grouped by month,
-   chronological. This is the default and the bulk of the screen.
-2. **Browse all** — collapsed by default. Seeded conferences with zero attendees.
-   Exists so a new member always has something to tap.
+**Step 1 — Name only.** One field. "What should other members call you?" Nothing else.
+A name is the minimum needed for anyone else to recognize them.
+
+**Step 2 — "What conferences are you going to?"** The seeded catalog as a tap-to-toggle
+list, same interaction as the year grid. A visible **Skip for now** option. Below the
+list, one plain sentence: *"Other CREW members will see you're going. You can narrow this
+in settings."* That single sentence is the entire visibility disclosure at onboarding —
+do not present the two-option visibility choice here, just default to `all_members`.
+
+**Step 3 — The payoff.** Immediately after step 2, show what they just unlocked:
+- *"You're going to Money20/20 with 4 other CREW members."* — names and titles listed
+- For conferences where they're first: *"You're the first CREW member here. Others will
+  see you when they add it."* — framed as useful, never as empty
+- If they skipped: show the 3 conferences with the most attendees and a prompt to add one
+
+**Step 4 — Profile, optional and skippable.** Title, company, LinkedIn. Header should make
+clear it's optional: *"Help people recognize you."* A skip lands them on `/` regardless.
+Anyone who skips gets a dismissible prompt on `/` until they complete it.
+
+Visibility lives in `/me`, not in onboarding. It has a safe default and asking about it
+up front costs more attention than it's worth.
+
+### `/` — home (the centerpiece)
+
+**This screen is the product.** Everything else supports it. A member should open it and
+immediately see the answer to "who am I going to run into?" — not a dashboard, not a
+grid of options to work through. Think of it as the list this will become when it lives
+inside Circle: your conferences, and who else is going to each one.
+
+Three sections, in this order:
+
+1. **Yours** — conferences you're attending, chronological, soonest first. Under each,
+   the other CREW members going, by name. **This is the only section that matters.**
+   Not a count with an expand affordance — the names, right there, on first load.
+   If a conference has no one else yet: *"First one here."* Quiet, not an error state.
+2. **Where CREW is going** — conferences with ≥1 attendee that you're *not* attending.
+   Grouped by month. This is the discovery section.
+3. **Browse all** — collapsed by default. Seeded conferences with zero attendees, so a
+   new member always has something to tap.
+
+If the member is attending nothing, section 1 collapses to a single prompt to add one
+and section 2 carries the screen. It must never look empty.
+
+Keep it clean. This screen is the one thing that gets judged, and restraint reads as
+confidence — resist adding stats, badges, or activity feeds to it.
 
 Each row: conference name (serif), dates + city (small, slate), overlapping initial
 avatars, count, and a check circle.
@@ -294,7 +343,8 @@ marker is not optional.
   All calls go through one server route. No client ever touches the key.
 - Route rejects any request without an approved member session.
 - **Per-member limit:** 10 lookups per rolling 24h.
-- **Global limit:** 100 lookups per day across all users.
+- **Global limit:** 40 lookups per day across all users. (At ~$0.034 per lookup this
+  caps worst-case exposure near $40/month. 16 members will not come close.)
 - **Kill switch:** `app_settings.ai_enabled`. When false, the route returns immediately
   and the UI falls back to manual entry. Toggleable from `/admin`.
 - **Cache aggressively:** normalize the query (lowercase, strip punctuation) and check
@@ -309,6 +359,13 @@ marker is not optional.
 ---
 
 ## 10. Meetups
+
+> **Priority note.** Meetups are **secondary**. The primary function of this app — the
+> thing it will be judged on — is letting a member see which other CREW members are going
+> to which conferences. Meetups only need to work well enough to prove the concept: a
+> member can propose one, others can see it and say they're in, and one person is clearly
+> in charge. Rough edges here are acceptable. Rough edges in the core loop are not.
+> If effort must be traded between the two, the core loop wins every time.
 
 **Meetups and polls are one object, not two.** A meetup is created in `polling` state.
 
@@ -412,16 +469,18 @@ Do not build these, even if they seem like natural extensions:
 **M1 — Skeleton.** Next.js + Supabase + Tailwind. Schema and RLS. Magic-link auth,
 invite code, pending state, admin approval queue. Deployed to Vercel.
 
-**M2 — The core loop.** Seed the catalog. Year grid with tap-to-toggle. Conference
-detail with roster. Visibility rules with tests. This is the point where the app is
-genuinely usable and worth showing someone.
+**M2 — The core loop.** Seed the catalog. Home screen with tap-to-toggle. Conference
+detail with roster. `/me`. **Member-added conferences with AI lookup** (§9, moved up
+from M4 — without it, a member whose conference isn't seeded hits a dead end at exactly
+the moment the app is supposed to prove itself). Visibility rules with tests. This is
+the point where the app is genuinely usable and worth showing someone.
 
 **M3 — Meetups.** Poll → confirm state machine. Un-attend cascade. Official flag.
+Secondary priority per §10.
 
-**M4 — Everything else.** Calendar views. AI conference add with full guardrails.
-Member cards. Digest and nudge emails.
+**M4 — Everything else.** Calendar views. Member cards. Digest and nudge emails.
 
-Do not start M2 until auth and RLS are verified working. Do not start M4 until a real
+Do not start M2 until auth and RLS are verified working. Do not start M3 until a real
 person has used M2 and entered at least one conference.
 
 ---
