@@ -22,7 +22,7 @@ create table members (
   linkedin_url text,
   status text not null default 'pending'
     check (status in ('pending', 'approved', 'rejected')),
-  visibility text not null default 'co_attendees'
+  visibility text not null default 'all_members'
     check (visibility in ('all_members', 'co_attendees')),
   is_curator boolean not null default false,
   created_at timestamptz not null default now(),

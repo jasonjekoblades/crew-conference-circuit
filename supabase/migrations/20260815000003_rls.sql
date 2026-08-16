@@ -107,26 +107,38 @@ grant select on member_profiles to authenticated;
 alter table conference_series enable row level security;
 grant select, insert, update, delete on conference_series to service_role;
 revoke all on conference_series from anon, authenticated;
-grant select on conference_series to authenticated;
+grant select, insert on conference_series to authenticated;
 
 -- Any approved member can browse the catalog. Pending members read nothing
 -- (is_approved_member() is false for them, so this policy excludes every
--- row). No INSERT/UPDATE policy: member-submitted conferences are M4.
+-- row).
 create policy conference_series_select_approved
   on conference_series for select
   to authenticated
   using (public.is_approved_member());
 
+-- A brand-new conference (one that didn't match anything in the duplicate
+-- check, §9) needs a brand-new series to attach to — conferences.series_id
+-- isn't nullable. No ownership column on conference_series to check against
+-- here (unlike conferences.created_by); any approved member can create one.
+create policy conference_series_insert_member
+  on conference_series for insert
+  to authenticated
+  with check (public.is_approved_member());
+
 -- conferences ---------------------------------------------------------------
 alter table conferences enable row level security;
 grant select, insert, update, delete on conferences to service_role;
 revoke all on conferences from anon, authenticated;
-grant select on conferences to authenticated;
+grant select, insert on conferences to authenticated;
 
--- Approved members see published conferences (the seeded catalog). Curators
--- additionally see pending_review ones — the M4 review queue — so this
--- policy is already correct once that queue exists; nothing writes
--- pending_review rows yet.
+-- Approved members see published conferences (the seeded catalog, plus
+-- anything a member has added — see the INSERT policy below, which forces
+-- new member-added rows to `verified=false, status='published'`, so they
+-- show up immediately with an unverified marker rather than sitting in a
+-- hidden queue). Curators additionally see pending_review ones, reserved
+-- for a future moderation flow that doesn't exist yet — nothing currently
+-- writes that status.
 create policy conferences_select_published
   on conferences for select
   to authenticated
@@ -137,13 +149,28 @@ create policy conferences_select_curator_all
   to authenticated
   using (public.is_curator());
 
+-- CLAUDE.md §9: "the member is the primary source." A member can add a
+-- conference themselves (with or without the AI lookup filling in details)
+-- but the row must be attributed to them (created_by = their own id, not
+-- forgeable), and can never masquerade as seed data or claim to be
+-- pre-verified — that's the curator's call, made later in /admin.
+create policy conferences_insert_member
+  on conferences for insert
+  to authenticated
+  with check (
+    public.is_approved_member()
+    and created_by = auth.uid()
+    and source in ('member', 'ai')
+    and verified = false
+  );
+
 -- attendances ---------------------------------------------------------------
 -- This is the policy CLAUDE.md §7 is actually about. Read it as: an approved
 -- member can see an attendance row if —
 --   (a) it's their own row, or
 --   (b) that attendee's global visibility is 'all_members', or
 --   (c) the viewer is themselves attending the same conference (the
---       "co_attendees" default — visible only to fellow attendees).
+--       the "co_attendees" opt-in — visible only to fellow attendees).
 -- This single policy implements both the conference-page roster rule and
 -- the member-page rule in CLAUDE.md §7, because both boil down to the same
 -- question: "can viewer V see attendee M's row for conference C?"
@@ -179,9 +206,30 @@ create policy attendances_select_per_visibility
     )
   );
 
--- No INSERT/UPDATE/DELETE policy yet: tap-to-toggle attendance is M2 (the
--- year grid). Write access will be scoped to `member_id = auth.uid()` when
--- that lands — a member can only ever create/remove their own attendance.
+-- Write access (M2, tap-to-toggle): a member can only ever create, edit the
+-- note on, or remove their OWN attendance — never anyone else's. INSERT
+-- also requires is_approved_member() so a stray session can't backdoor an
+-- attendance row before approval. DELETE has no un-attend-cascade logic
+-- (deleting votes/RSVPs, blocking removal if hosting) — that's M3, once
+-- meetups exist to have anything to cascade.
+grant insert, delete on attendances to authenticated;
+grant update (note) on attendances to authenticated;
+
+create policy attendances_insert_own
+  on attendances for insert
+  to authenticated
+  with check (member_id = auth.uid() and public.is_approved_member());
+
+create policy attendances_update_own_note
+  on attendances for update
+  to authenticated
+  using (member_id = auth.uid())
+  with check (member_id = auth.uid());
+
+create policy attendances_delete_own
+  on attendances for delete
+  to authenticated
+  using (member_id = auth.uid());
 
 -- meetups / meetup_slots / meetup_votes / meetup_rsvps -----------------------
 -- CLAUDE.md §7: "Meetups are visible only to attendees of the parent
