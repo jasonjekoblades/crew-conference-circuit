@@ -43,7 +43,7 @@ type SeedSeries = {
   slug: string;
   name: string;
   category: string;
-  website: string;
+  website: string | null;
   aliases: string[];
 };
 
@@ -55,7 +55,7 @@ type SeedConference = {
   end_date: string;
   city: string;
   country: string;
-  website: string;
+  website: string | null;
   verified: boolean;
   source: "seed" | "member" | "ai";
 };

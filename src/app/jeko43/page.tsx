@@ -6,6 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMemberSession } from "@/lib/auth/use-member-session";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AdminConferenceList } from "@/components/admin-conference-list";
 
 type MemberRow = { id: string; name: string | null; is_curator: boolean; created_at: string };
 
@@ -68,14 +69,16 @@ export default function AdminPage() {
     setActioningId(memberId);
     setError(null);
 
-    // Curators can delete any members row directly under RLS
-    // (members_delete_curator) — no API route needed for this one.
-    const { error: deleteError } = await getSupabaseClient()
-      .from("members")
-      .delete()
-      .eq("id", memberId);
+    // Routed through the server, not a direct client delete — so the
+    // removed member's underlying anonymous auth session is actually
+    // deleted too, not just their members row. See /api/admin/remove-member.
+    const res = await fetch("/api/admin/remove-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeader()) },
+      body: JSON.stringify({ memberId }),
+    });
 
-    if (deleteError) {
+    if (!res.ok) {
       setError("Couldn't remove that member.");
     } else {
       await load();
@@ -154,6 +157,9 @@ export default function AdminPage() {
         )}
 
         {error && <p className="text-sm text-error mt-3">{error}</p>}
+
+        <p className="label mb-3 mt-8">Conferences</p>
+        <AdminConferenceList authHeader={authHeader} />
       </div>
     </main>
   );

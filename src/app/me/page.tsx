@@ -84,12 +84,15 @@ export default function MePage() {
   async function handleDelete() {
     if (session.status !== "ready") return;
     setSubmitting(true);
-    const { error: deleteError } = await getSupabaseClient()
-      .from("members")
-      .delete()
-      .eq("id", session.member.id);
 
-    if (deleteError) {
+    const { data: sessionData } = await getSupabaseClient().auth.getSession();
+    const token = sessionData.session?.access_token;
+    const res = await fetch("/api/me/delete", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token ?? ""}` },
+    });
+
+    if (!res.ok) {
       setSubmitting(false);
       setError("Couldn't delete your data. Try again, or ask the organizer to remove you.");
       return;

@@ -1,0 +1,12 @@
+-- Run 6, Stage 1: fixes the actual cause of "delete my data" and the admin
+-- "remove member" button both failing with a generic error.
+--
+-- members_delete_own and members_delete_curator (0003_rls.sql) were written
+-- correctly — the bug wasn't the RLS policy, it was one layer below it. As
+-- 0003's own header comment already documented for a different table:
+-- Postgres checks table-level GRANTs BEFORE it ever consults RLS policies.
+-- 0003 granted select/insert/update on members to `authenticated`, but
+-- never granted delete — so every delete attempt failed with "permission
+-- denied for table members" (42501) before RLS even got a chance to run.
+-- The policies were unreachable dead code the whole time.
+grant delete on members to authenticated;

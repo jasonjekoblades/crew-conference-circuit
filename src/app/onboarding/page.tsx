@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMemberSession, isOnboarded } from "@/lib/auth/use-member-session";
 import type { Conference } from "@/lib/conferences";
+import { conferenceSlug } from "@/lib/conferences";
 import { ConferenceRow } from "@/components/conference-row";
+import { AddConferenceForm } from "@/components/add-conference-form";
+import type { SeriesForMatching } from "@/lib/duplicate-check";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -26,7 +29,9 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(1);
   const [name, setName] = useState("");
   const [conferences, setConferences] = useState<Conference[] | null>(null);
+  const [seriesList, setSeriesList] = useState<SeriesForMatching[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAddForm, setShowAddForm] = useState(false);
   const [payoff, setPayoff] = useState<PayoffEntry[] | null>(null);
   const [skipTeaser, setSkipTeaser] = useState<Teaser[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -42,12 +47,24 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (step !== 2 || conferences !== null) return;
-    getSupabaseClient()
-      .from("conferences")
-      .select("id, name, city, country, start_date, end_date, category")
-      .eq("status", "published")
-      .order("start_date", { ascending: true })
-      .then(({ data }) => setConferences((data as Conference[]) ?? []));
+    const supabase = getSupabaseClient();
+    Promise.all([
+      supabase
+        .from("conferences")
+        .select("id, name, city, country, start_date, end_date, category, year, conference_series(slug)")
+        .eq("status", "published")
+        .order("start_date", { ascending: true }),
+      supabase.from("conference_series").select("id, name, slug, aliases"),
+    ]).then(([{ data: conf }, { data: series }]) => {
+      type ConferenceRowShape = Omit<Conference, "slug"> & { year: number; conference_series: { slug: string } | null };
+      setConferences(
+        ((conf as unknown as ConferenceRowShape[]) ?? []).map((c) => ({
+          ...c,
+          slug: c.conference_series ? conferenceSlug(c.conference_series.slug, c.year) : c.id,
+        }))
+      );
+      setSeriesList((series as SeriesForMatching[]) ?? []);
+    });
   }, [step, conferences]);
 
   function toggleConference(id: string) {
@@ -195,6 +212,34 @@ export default function OnboardingPage() {
                 </div>
               )}
             </Card>
+            <div className="mt-3 text-center">
+              <button
+                type="button"
+                className="text-[12.5px] text-slate underline"
+                onClick={() => setShowAddForm((v) => !v)}
+              >
+                {showAddForm ? "Hide" : "Can't find your conference? Add it"}
+              </button>
+            </div>
+
+            {showAddForm && seriesList && (
+              <div className="mt-4 rounded-lg border border-line bg-card p-4">
+                <AddConferenceForm
+                  memberId={session.member.id}
+                  seriesList={seriesList}
+                  catalog={conferences ?? []}
+                  myAttendingIds={selectedIds}
+                  onToggleCatalogAttendance={toggleConference}
+                  deferAttendance
+                  onCreated={(conference) => {
+                    setConferences((prev) => [...(prev ?? []), conference]);
+                    setSelectedIds((prev) => new Set(prev).add(conference.id));
+                    setShowAddForm(false);
+                  }}
+                />
+              </div>
+            )}
+
             {error && (
               <Alert className="border-error bg-error-bg mt-4">
                 <AlertDescription className="text-error">{error}</AlertDescription>
@@ -204,6 +249,9 @@ export default function OnboardingPage() {
               <Button className="w-full" disabled={submitting} onClick={handleStep2Continue}>
                 {submitting ? "Saving…" : selectedIds.size > 0 ? "Continue" : "Skip for now"}
               </Button>
+              {selectedIds.size === 0 && (
+                <p className="text-[11.5px] text-slate text-center">You can add conferences later.</p>
+              )}
             </div>
           </>
         )}

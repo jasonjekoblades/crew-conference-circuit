@@ -3,7 +3,7 @@
     "verified_on": "2026-08-10",
     "method": "Each entry checked against the organizer's own domain. Aggregator listings were used only as corroboration and were noticeably less reliable.",
     "note": "Every conference below has verified=true EXCEPT where flagged. Do not add entries to this file without the same verification standard \u2014 a wrong date here means someone books a wrong flight.",
-    "counts": "15 conferences across 15 series. 14 verified, 1 deliberately left unverified (HITEC 2027)."
+    "counts": "16 conferences across 16 series. 15 verified, 1 deliberately left unverified (HITEC 2027). FinovateFall 2026 added Run 6 with curator-supplied dates from sources other than Finovate's own site — flagged for the curator to confirm independently."
   },
   "categories": [
     "AI & Data",
@@ -191,6 +191,20 @@
         "Transact",
         "ETA Transact"
       ]
+    },
+    {
+      "slug": "finovatefall",
+      "name": "FinovateFall",
+      "organizer": "Finovate",
+      "category": "Fintech & Payments",
+      "website": null,
+      "aliases": [
+        "Finovate",
+        "Finovate Fall",
+        "FinovateFall NYC",
+        "Finnovate"
+      ],
+      "_warning": "Finovate runs several events a year (FinovateFall NYC, FinovateSpring, FinovateEurope) — this series is specifically the New York fall edition. 'Finnovate' is a common misspelling, included as an alias on purpose."
     }
   ],
   "conferences": [
@@ -414,6 +428,21 @@
       "verified": false,
       "source": "seed",
       "note": "UNVERIFIED. Dates come from aggregator listings only - HFTP's own site confirms HITEC returns in 2027 but had not published dates at time of seeding. Confirm before relying on this. Left unverified deliberately as a live example of the marker."
+    },
+    {
+      "series_slug": "finovatefall",
+      "year": 2026,
+      "name": "FinovateFall 2026",
+      "start_date": "2026-09-09",
+      "end_date": "2026-09-11",
+      "city": "New York",
+      "state": "NY",
+      "country": "USA",
+      "venue": "New York Marriott Marquis (Marriott Marquis Times Square)",
+      "website": null,
+      "verified": true,
+      "source": "seed",
+      "note": "Marked verified per curator request (Run 6), but dates came from sources other than Finovate's own site — flagged for the curator to confirm independently, not independently re-verified here."
     }
   ],
   "seed_attendance": [

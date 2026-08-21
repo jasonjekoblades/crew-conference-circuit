@@ -251,7 +251,13 @@ Three steps:
 A name is the minimum needed for anyone else to recognize them.
 
 **Step 2 — "What conferences are you going to?"** The seeded catalog as a tap-to-toggle
-list, same interaction as the year grid. A visible **Skip for now** option. Below the
+list, same interaction as the home screen. **Members must be able to add a conference
+that isn't listed, right here** — the catalog is only 15 entries and hitting a dead end
+at this exact moment defeats the purpose of the step. Same add flow as `/add`, AI lookup
+included.
+
+A visible **Skip for now** option, with subtext directly beneath it: *"You can add
+conferences later."* Skipping must not feel like forfeiting something. Below the
 list, one plain sentence: *"Other CREW members will see you're going."* That's the whole
 disclosure. There is no visibility choice to present (§7) — if a member doesn't want a
 conference known, they don't add it.
@@ -330,8 +336,23 @@ button. That's all. **No title, company, or LinkedIn** — those were cut (§8 o
 **No visibility setting** (§7). No sign-out — there's no account to sign out of.
 
 ### `/admin` (curator only)
-Member list (with remove) · conference review queue (unverified entries) · duplicate merge
-tool · AI kill switch · user cap. Functional, not pretty.
+Functional, not pretty. Must cover:
+
+- **Member list** with remove.
+- **Conference review queue** — unverified (member-added) entries awaiting confirmation.
+- **Edit any conference** — name, dates, city, venue, website. **Editing must preserve
+  attendance.** Wrong dates entered from memory are the expected case, not the rare one;
+  a curator fixing them must not silently drop everyone already marked as going.
+- **Mark verified** — clears the unverified badge.
+- **Delete a conference**, with a warning naming how many members are attending. Deleting
+  one with attendees should feel deliberate.
+- **Duplicate merge** — combine two conference rows, moving all attendance to the
+  survivor. Split rosters are the failure mode that makes the app look broken (§9).
+- **AI kill switch** and **member cap**.
+
+The curator is one non-technical person. Every routine cleanup task — fixing a date,
+removing a test entry, merging a duplicate — must be doable in the app. If a task
+requires database access, it will not get done.
 
 ---
 
