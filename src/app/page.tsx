@@ -152,8 +152,15 @@ export default function HomePage() {
           Where&rsquo;s <span className="text-brass">CREW</span>
         </span>
         <Link
+          href="/add"
+          className="ml-auto w-[29px] h-[29px] rounded-full border border-line text-ink flex items-center justify-center text-lg leading-none"
+          aria-label="Add a conference"
+        >
+          +
+        </Link>
+        <Link
           href="/me"
-          className="ml-auto w-[29px] h-[29px] rounded-full bg-ink text-white text-[11px] font-semibold flex items-center justify-center"
+          className="w-[29px] h-[29px] rounded-full bg-ink text-white text-[11px] font-semibold flex items-center justify-center"
         >
           {initials(session.member.name)}
         </Link>

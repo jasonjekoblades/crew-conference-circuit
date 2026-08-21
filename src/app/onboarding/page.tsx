@@ -8,14 +8,13 @@ import type { Conference } from "@/lib/conferences";
 import { ConferenceRow } from "@/components/conference-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 type PayoffEntry =
-  | { conference: Conference; others: { name: string; title: string | null }[] }
+  | { conference: Conference; others: { name: string }[] }
   | { conference: Conference; others: null }; // null = "first here"
 
 type Teaser = { name: string; city: string; attendee_count: number };
@@ -30,9 +29,6 @@ export default function OnboardingPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [payoff, setPayoff] = useState<PayoffEntry[] | null>(null);
   const [skipTeaser, setSkipTeaser] = useState<Teaser[] | null>(null);
-  const [title, setTitle] = useState("");
-  const [company, setCompany] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,14 +120,12 @@ export default function OnboardingPage() {
 
         const { data: others } = await supabase
           .from("members")
-          .select("name, title")
+          .select("name")
           .in("id", otherIds);
 
         entries.push({
           conference,
-          others: (others ?? [])
-            .filter((o) => o.name)
-            .map((o) => ({ name: o.name as string, title: o.title })),
+          others: (others ?? []).filter((o) => o.name).map((o) => ({ name: o.name as string })),
         });
       }
       setPayoff(entries);
@@ -139,30 +133,6 @@ export default function OnboardingPage() {
 
     setSubmitting(false);
     setStep(3);
-  }
-
-  async function handleStep4Submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (session.status !== "ready") return;
-    setSubmitting(true);
-    setError(null);
-
-    const { error: updateError } = await getSupabaseClient()
-      .from("members")
-      .update({
-        title: title.trim() || null,
-        company: company.trim() || null,
-        linkedin_url: linkedinUrl.trim() || null,
-      })
-      .eq("id", session.member.id);
-
-    setSubmitting(false);
-
-    if (updateError) {
-      setError("Couldn't save that. Try again.");
-      return;
-    }
-    router.push("/");
   }
 
   if (session.status !== "ready" || isOnboarded(session.member)) {
@@ -292,63 +262,9 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            <Button className="w-full mt-6" onClick={() => setStep(4)}>
-              Continue
+            <Button className="w-full mt-6" onClick={() => router.push("/")}>
+              {payoff && payoff.length > 0 ? "Continue" : "Take me in"}
             </Button>
-          </>
-        )}
-
-        {step === 4 && (
-          <>
-            <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-1">
-              Help people recognize you
-            </h1>
-            <p className="text-sm text-slate text-center mb-6">Optional — skip if you&rsquo;d rather do this later.</p>
-            <Card className="border-line">
-              <CardContent className="pt-6">
-                <form onSubmit={handleStep4Submit} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="title">Title</Label>
-                    <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="company">Company</Label>
-                    <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="linkedin">LinkedIn</Label>
-                    <Input
-                      id="linkedin"
-                      type="url"
-                      placeholder="https://linkedin.com/in/…"
-                      value={linkedinUrl}
-                      onChange={(e) => setLinkedinUrl(e.target.value)}
-                    />
-                  </div>
-
-                  {error && (
-                    <Alert className="border-error bg-error-bg">
-                      <AlertDescription className="text-error">{error}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                    <Button type="submit" className="w-full" disabled={submitting}>
-                      {submitting ? "Saving…" : "Continue"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      disabled={submitting}
-                      onClick={() => router.push("/")}
-                    >
-                      Skip for now
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
           </>
         )}
       </div>

@@ -7,9 +7,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 export type Member = {
   id: string;
   name: string | null;
-  title: string | null;
-  company: string | null;
-  linkedin_url: string | null;
   is_curator: boolean;
 };
 
@@ -46,7 +43,7 @@ export function useMemberSession(): MemberSessionState {
 
     const { data: member, error } = await supabase
       .from("members")
-      .select("id, name, title, company, linkedin_url, is_curator")
+      .select("id, name, is_curator")
       .eq("auth_user_id", session.user.id)
       .maybeSingle();
 

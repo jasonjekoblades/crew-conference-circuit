@@ -22,9 +22,10 @@ type ConferenceDetail = {
   start_date: string;
   end_date: string;
   website: string | null;
+  verified: boolean;
 };
 
-type Attendee = { member_id: string; note: string | null; name: string | null; title: string | null; company: string | null };
+type Attendee = { member_id: string; note: string | null; name: string | null };
 
 function parseConferenceSlug(slug: string): { seriesSlug: string; year: number } | null {
   const match = /^(.+)-(\d{4})$/.exec(slug);
@@ -59,7 +60,7 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
     const supabase = getSupabaseClient();
     const { data: conf } = await supabase
       .from("conferences")
-      .select("id, name, city, country, start_date, end_date, website, year, conference_series!inner(slug)")
+      .select("id, name, city, country, start_date, end_date, website, verified, year, conference_series!inner(slug)")
       .eq("year", parsed.year)
       .eq("conference_series.slug", parsed.seriesSlug)
       .maybeSingle();
@@ -79,7 +80,7 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
     const memberIds = (attRows ?? []).map((r) => r.member_id);
     const { data: memberRows } =
       memberIds.length > 0
-        ? await supabase.from("members").select("id, name, title, company").in("id", memberIds)
+        ? await supabase.from("members").select("id, name").in("id", memberIds)
         : { data: [] };
 
     const memberById = new Map((memberRows ?? []).map((m) => [m.id, m]));
@@ -88,8 +89,6 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
         member_id: r.member_id,
         note: r.note,
         name: memberById.get(r.member_id)?.name ?? null,
-        title: memberById.get(r.member_id)?.title ?? null,
-        company: memberById.get(r.member_id)?.company ?? null,
       }))
     );
   }, [routeSlug]);
@@ -154,9 +153,16 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
         </div>
 
         <div className="px-4 pt-3 pb-5 border-b border-line">
-          <h1 className="font-heading text-[27px] font-semibold text-ink leading-tight mb-1.5">
-            {conference.name}
-          </h1>
+          <div className="flex items-start gap-2 mb-1.5">
+            <h1 className="font-heading text-[27px] font-semibold text-ink leading-tight">
+              {conference.name}
+            </h1>
+            {!conference.verified && (
+              <span className="mt-2 shrink-0 text-[10px] uppercase tracking-[0.08em] font-medium text-slate border border-line rounded-full px-2 py-0.5">
+                Unverified
+              </span>
+            )}
+          </div>
           <p className="text-[12.5px] text-slate">
             {formatDateRange(conference.start_date, conference.end_date)} · {conference.city}
             {conference.website && (
@@ -214,11 +220,9 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
           <p className="text-sm text-slate px-4 pb-8">Nobody yet — be the first.</p>
         ) : (
           <div className="pb-8">
-            {mine && (
-              <AttendeeRow name={session.member.name} title={mine.title} company={mine.company} note={mine.note} you />
-            )}
+            {mine && <AttendeeRow memberId={myId} name={session.member.name} note={mine.note} you />}
             {others.map((a) => (
-              <AttendeeRow key={a.member_id} name={a.name} title={a.title} company={a.company} note={a.note} />
+              <AttendeeRow key={a.member_id} memberId={a.member_id} name={a.name} note={a.note} />
             ))}
           </div>
         )}
@@ -228,15 +232,13 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
 }
 
 function AttendeeRow({
+  memberId,
   name,
-  title,
-  company,
   note,
   you,
 }: {
+  memberId: string;
   name: string | null;
-  title: string | null;
-  company: string | null;
   note: string | null;
   you?: boolean;
 }) {
@@ -258,16 +260,9 @@ function AttendeeRow({
         {initials}
       </div>
       <div className="min-w-0">
-        <div className="text-[13.5px] font-semibold text-ink">
+        <Link href={you ? "/me" : `/m/${memberId}`} className="text-[13.5px] font-semibold text-ink hover:underline">
           {name} {you && <span className="text-slate font-normal">(you)</span>}
-        </div>
-        {(title || company) && (
-          <div className="text-[11.5px] text-slate mt-0.5">
-            {title}
-            {title && company && " · "}
-            {company}
-          </div>
-        )}
+        </Link>
         {note && (
           <div className="text-[11.5px] text-ink-2 mt-1.5 border-l-2 border-line pl-2 leading-snug">{note}</div>
         )}

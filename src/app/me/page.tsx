@@ -20,9 +20,6 @@ export default function MePage() {
   const session = useMemberSession();
 
   const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [company, setCompany] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState("");
   const [myConferences, setMyConferences] = useState<MyAttendance[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +33,6 @@ export default function MePage() {
   useEffect(() => {
     if (session.status !== "ready") return;
     setName(session.member.name ?? "");
-    setTitle(session.member.title ?? "");
-    setCompany(session.member.company ?? "");
-    setLinkedinUrl(session.member.linkedin_url ?? "");
 
     getSupabaseClient()
       .from("attendances")
@@ -76,12 +70,7 @@ export default function MePage() {
 
     const { error: updateError } = await getSupabaseClient()
       .from("members")
-      .update({
-        name: name.trim(),
-        title: title.trim() || null,
-        company: company.trim() || null,
-        linkedin_url: linkedinUrl.trim() || null,
-      })
+      .update({ name: name.trim() })
       .eq("id", session.member.id);
 
     setSubmitting(false);
@@ -127,23 +116,6 @@ export default function MePage() {
               <div className="space-y-1.5">
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="company">Company</Label>
-                <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="linkedin">LinkedIn</Label>
-                <Input
-                  id="linkedin"
-                  type="url"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                />
               </div>
 
               {error && (
