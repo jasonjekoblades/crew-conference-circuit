@@ -39,6 +39,11 @@ Despite the filename, `CLAUDE.md` is tool-agnostic. It's the spec regardless of 
 assistant or human is reading it. See [`AGENTS.md`](./AGENTS.md) for the short version
 that other harnesses (Cursor, Codex, Copilot) should pick up.
 
+Picking this project up from someone else, or planning the eventual move into CREW's
+Circle platform? **[`HANDOFF.md`](./HANDOFF.md)** has the operational map — account
+access, credentials, deploy process, and the migration path — that this README and
+`CLAUDE.md` don't cover.
+
 ---
 
 ## Stack
