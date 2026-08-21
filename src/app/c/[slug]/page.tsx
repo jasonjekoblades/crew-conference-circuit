@@ -9,11 +9,11 @@ import { formatDateRange } from "@/lib/conferences";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-// Folder is named [slug] to match CLAUDE.md §8's route naming, but the
-// param value is actually the conference's uuid id — conferences has no
-// slug column of its own (only conference_series does, per §5), and adding
-// one wasn't worth it for a URL-aesthetics difference with no functional
-// effect.
+// Route param is `<series-slug>-<year>` (e.g. money2020-usa-2026), built by
+// conferenceSlug() in @/lib/conferences. Resolved here to the conference's
+// real uuid via a join on conference_series, then every subsequent query
+// uses that resolved id — none of the seed series slugs end in digits, so
+// splitting on a trailing 4-digit year is unambiguous.
 type ConferenceDetail = {
   id: string;
   name: string;
@@ -26,8 +26,14 @@ type ConferenceDetail = {
 
 type Attendee = { member_id: string; note: string | null; name: string | null; title: string | null; company: string | null };
 
+function parseConferenceSlug(slug: string): { seriesSlug: string; year: number } | null {
+  const match = /^(.+)-(\d{4})$/.exec(slug);
+  if (!match) return null;
+  return { seriesSlug: match[1], year: parseInt(match[2], 10) };
+}
+
 export default function ConferenceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug: conferenceId } = use(params);
+  const { slug: routeSlug } = use(params);
   const router = useRouter();
   const session = useMemberSession();
 
@@ -44,17 +50,25 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
   }, [session, router]);
 
   const load = useCallback(async () => {
+    const parsed = parseConferenceSlug(routeSlug);
+    if (!parsed) {
+      setNotFound(true);
+      return;
+    }
+
     const supabase = getSupabaseClient();
     const { data: conf } = await supabase
       .from("conferences")
-      .select("id, name, city, country, start_date, end_date, website")
-      .eq("id", conferenceId)
+      .select("id, name, city, country, start_date, end_date, website, year, conference_series!inner(slug)")
+      .eq("year", parsed.year)
+      .eq("conference_series.slug", parsed.seriesSlug)
       .maybeSingle();
 
     if (!conf) {
       setNotFound(true);
       return;
     }
+    const conferenceId = conf.id;
     setConference(conf as ConferenceDetail);
 
     const { data: attRows } = await supabase
@@ -78,7 +92,7 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
         company: memberById.get(r.member_id)?.company ?? null,
       }))
     );
-  }, [conferenceId]);
+  }, [routeSlug]);
 
   useEffect(() => {
     if (session.status === "ready" && isOnboarded(session.member)) load();
@@ -104,6 +118,7 @@ export default function ConferenceDetailPage({ params }: { params: Promise<{ slu
   const mine = attendees.find((a) => a.member_id === myId);
   const going = Boolean(mine);
   const others = attendees.filter((a) => a.member_id !== myId);
+  const conferenceId = conference.id;
 
   async function toggleGoing() {
     setBusy(true);

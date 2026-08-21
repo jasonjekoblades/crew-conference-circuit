@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMemberSession, isOnboarded } from "@/lib/auth/use-member-session";
 import type { Conference } from "@/lib/conferences";
+import { conferenceSlug } from "@/lib/conferences";
 import { ConferenceRow } from "@/components/conference-row";
 
 type AttendanceRow = { member_id: string; conference_id: string };
@@ -59,13 +60,19 @@ export default function HomePage() {
     const [{ data: conf }, { data: att }, { data: mem }] = await Promise.all([
       supabase
         .from("conferences")
-        .select("id, name, city, country, start_date, end_date, category")
+        .select("id, name, city, country, start_date, end_date, category, year, conference_series(slug)")
         .eq("status", "published")
         .order("start_date", { ascending: true }),
       supabase.from("attendances").select("member_id, conference_id"),
       supabase.from("members").select("id, name"),
     ]);
-    setConferences((conf as Conference[]) ?? []);
+    type ConferenceRow = Omit<Conference, "slug"> & { year: number; conference_series: { slug: string } | null };
+    setConferences(
+      ((conf as unknown as ConferenceRow[]) ?? []).map((c) => ({
+        ...c,
+        slug: c.conference_series ? conferenceSlug(c.conference_series.slug, c.year) : c.id,
+      }))
+    );
     setAttendances((att as AttendanceRow[]) ?? []);
     setMembers((mem as MemberLite[]) ?? []);
   }
@@ -194,7 +201,7 @@ export default function HomePage() {
                               .filter(Boolean)
                               .join(", ")}
                       </p>
-                      <Link href={`/c/${c.id}`} className="text-slate text-xs ml-3 shrink-0">
+                      <Link href={`/c/${c.slug}`} className="text-slate text-xs ml-3 shrink-0">
                         →
                       </Link>
                     </div>

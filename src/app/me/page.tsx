@@ -6,7 +6,7 @@ import Link from "next/link";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMemberSession, isOnboarded } from "@/lib/auth/use-member-session";
 import type { Conference } from "@/lib/conferences";
-import { formatDateRange } from "@/lib/conferences";
+import { formatDateRange, conferenceSlug } from "@/lib/conferences";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,14 +42,24 @@ export default function MePage() {
 
     getSupabaseClient()
       .from("attendances")
-      .select("note, conferences(id, name, city, country, start_date, end_date, category)")
+      .select("note, conferences(id, name, city, country, start_date, end_date, category, year, conference_series(slug))")
       .eq("member_id", session.member.id)
       .then(({ data }) => {
-        const rows = (data ?? []) as unknown as { note: string | null; conferences: Conference | null }[];
+        type ConferenceRow = Omit<Conference, "slug"> & {
+          year: number;
+          conference_series: { slug: string } | null;
+        };
+        const rows = (data ?? []) as unknown as { note: string | null; conferences: ConferenceRow | null }[];
         setMyConferences(
           rows
             .filter((r) => r.conferences)
-            .map((r) => ({ conference: r.conferences as Conference, note: r.note }))
+            .map((r) => {
+              const c = r.conferences as ConferenceRow;
+              return {
+                conference: { ...c, slug: c.conference_series ? conferenceSlug(c.conference_series.slug, c.year) : c.id },
+                note: r.note,
+              };
+            })
         );
       });
   }, [session]);
@@ -161,7 +171,7 @@ export default function MePage() {
               {myConferences.map(({ conference, note }) => (
                 <Link
                   key={conference.id}
-                  href={`/c/${conference.id}`}
+                  href={`/c/${conference.slug}`}
                   className="block px-4 py-3 border-t border-line first:border-t-0"
                 >
                   <div className="font-heading text-[14.5px] text-ink">{conference.name}</div>

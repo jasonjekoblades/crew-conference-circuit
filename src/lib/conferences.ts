@@ -6,7 +6,13 @@ export type Conference = {
   start_date: string;
   end_date: string;
   category: string;
+  slug: string;
 };
+
+/** `money2020-usa` + 2026 -> `money2020-usa-2026`, the readable URL for /c/[slug]. */
+export function conferenceSlug(seriesSlug: string, year: number): string {
+  return `${seriesSlug}-${year}`;
+}
 
 export function formatDateRange(startDate: string, endDate: string): string {
   const start = new Date(startDate + "T00:00:00");
