@@ -179,10 +179,10 @@ src/
   app/                 Next.js App Router
     page.tsx           Home — the core loop. The screen that matters.
     enter/             Invite code — the only gate
-    onboarding/        Name → conferences → payoff → optional profile
+    onboarding/        Name → conferences → payoff (3 steps, no profile)
     c/[slug]/          Conference detail + full roster
     m/[id]/            Member card (deliberately thin)
-    me/                Profile, your conferences, delete
+    me/                Your name, your conferences, delete
     admin/             Curator: member list, AI kill switch
     api/               Server routes (enter, AI lookup)
   styles/tokens.css    ALL colors and type scale. One file, on purpose.
@@ -242,8 +242,9 @@ they are not part of the Vercel build.
 
 **Explicitly out of scope**, and likely to stay that way: in-app messaging, photo
 uploads, a "considering" attendance state, session-level matching, calendar sync,
-capacity caps, rich profiles, monetization, native apps, email of any kind, and
-per-member visibility settings. See `CLAUDE.md` §14 — several
+capacity caps, monetization, native apps, email of any kind, per-member visibility
+settings, and profile fields of any sort — a member is a name and a list of
+conferences. See `CLAUDE.md` §14 — several
 of these were considered and deliberately rejected, so proposing them means re-opening a
 settled decision rather than raising a new idea.
 

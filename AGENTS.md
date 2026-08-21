@@ -36,9 +36,11 @@ resolving ambiguity, the core loop wins.
 - **No real member data in this repo.** Seed catalog is public conference info only.
 - **Never build messaging or notifications.** Explicitly and permanently out of scope.
 
-## Two things that were cut on purpose
+## Three things that were cut on purpose
 
-**Email** (§6, §12) and **per-member visibility settings** (§7). Both were fully specced
+**Email** (§6, §12), **per-member visibility settings** (§7), and **profile fields —
+title, company, LinkedIn** (§8). A member is a name and a list of conferences. CREW's own
+profiles supply the rest in the full version. Both were fully specced
 and then deliberately removed as disproportionate for a 16-person pilot sharing public
 conference schedules. Every member sees every other member's conferences by name, and
 attendee counts always equal the number of names shown. If you find yourself adding a

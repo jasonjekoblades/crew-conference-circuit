@@ -92,13 +92,14 @@ Match its density and restraint.
 
 ```sql
 members
-  id, auth_user_id (unique, -> auth.users.id), name, title, company, linkedin_url,
+  id, auth_user_id (unique, -> auth.users.id), name,
   is_curator        -- boolean, default false
   created_at
 
-  -- NO email column. NO status column. NO visibility column.
-  -- Entry via invite code is the gate; there is no pending/approved state and
-  -- no per-member privacy setting. All three were cut deliberately (§6, §7).
+  -- NO email. NO status. NO visibility. NO title/company/linkedin_url.
+  -- Entry via invite code is the gate; there is no pending/approved state, no
+  -- per-member privacy setting, and no profile fields. All cut deliberately
+  -- (§6, §7, §8). A member is a name and a list of conferences, nothing more.
 
 conference_series           -- year-over-year identity
   id, name, slug, category, website, aliases (text[])
@@ -239,12 +240,12 @@ shows the member list to pick their name from (§6).
 
 ### `/onboarding` — conferences first, profile later
 
-**This is the most important flow in the app.** A new member must reach the payoff — seeing
-another member's name next to a conference — in under 60 seconds and without filling in a
-profile. Do not front-load profile fields. Do not ask for anything that isn't required to
-show them something useful.
+**This is the most important flow in the app.** A new member must reach the payoff —
+seeing another member's name next to a conference — in under 60 seconds. There are no
+profile fields to fill in at all. Do not ask for anything beyond a name and their
+conferences.
 
-Four steps:
+Three steps:
 
 **Step 1 — Name only.** One field. "What should other members call you?" Nothing else.
 A name is the minimum needed for anyone else to recognize them.
@@ -261,9 +262,11 @@ conference known, they don't add it.
   see you when they add it."* — framed as useful, never as empty
 - If they skipped: show the 3 conferences with the most attendees and a prompt to add one
 
-**Step 4 — Profile, optional and skippable.** Title, company, LinkedIn. Header should make
-clear it's optional: *"Help people recognize you."* A skip lands them on `/` regardless.
-Anyone who skips gets a dismissible prompt on `/` until they complete it.
+**There is no step 4.** Profile fields were cut — a member is a name and a list of
+conferences. Step 3 ends with a button straight to `/`. Do not add a profile step back.
+
+In the full version this connects to CREW's own member profiles, so building a parallel
+profile system now would only create something to migrate away from later.
 
 Nothing else is asked at onboarding. No email, no visibility setting, no account
 creation — the invite code was the gate and it's already been passed.
@@ -309,9 +312,11 @@ If attending, an inline field for the free-text note ("In Sun–Wed, free Tuesda
 Then the full roster — every attendee, by name — then meetups.
 
 ### `/m/[id]` — member card (deliberately thin)
-Name, title, company, initials avatar, all of that member's conferences, and an
-outbound LinkedIn link. **No bio, no photos, no messaging, no activity feed.**
-This is a footnote, not a directory.
+Name, initials avatar, and every conference that member is attending. That's the whole
+card. **No title, company, LinkedIn, bio, photos, messaging, or activity feed.**
+
+Its one job: a member taps a name on a roster and finds out where else they'll overlap.
+In the full version this links out to the member's real CREW profile.
 
 ### `/calendar`
 Two toggles: **Mine** and **All CREW**.
@@ -320,9 +325,9 @@ Two toggles: **Mine** and **All CREW**.
   tapping a day lists them below. Do not attempt bars in a 380px grid.
 
 ### `/me`
-Profile fields, list of your conferences with notes, and a working "delete me and my
-data" button. **No visibility setting** (§7). No sign-out — there's no account to sign
-out of; deletion is the exit.
+Your name (editable), your conferences with notes, and a working "delete me and my data"
+button. That's all. **No title, company, or LinkedIn** — those were cut (§8 onboarding).
+**No visibility setting** (§7). No sign-out — there's no account to sign out of.
 
 ### `/admin` (curator only)
 Member list (with remove) · conference review queue (unverified entries) · duplicate merge
@@ -481,6 +486,8 @@ re-opening a settled decision, not proposing a new idea:
 - Email of any kind, including magic-link auth (§6, §12)
 - Per-member visibility settings (§7)
 - Pending/approved member states and the approval queue (§6)
+- Profile fields — title, company, LinkedIn (§8). CREW profiles will supply these in the
+  full version; a parallel profile system now is only something to migrate away from.
 
 
 Do not build these, even if they seem like natural extensions:
