@@ -58,6 +58,7 @@ export function AddConferenceForm({
   catalog,
   myAttendingIds,
   onToggleCatalogAttendance,
+  onDuplicateMatched,
   onCreated,
   deferAttendance = false,
 }: {
@@ -66,6 +67,11 @@ export function AddConferenceForm({
   catalog: Conference[];
   myAttendingIds: Set<string>;
   onToggleCatalogAttendance: (conferenceId: string) => void;
+  /** Called after a member resolves a duplicate warning by marking an
+   * existing conference as going — Run 7 Stage 1: a warning nobody acts on
+   * confirms nothing, so the caller gets a chance to show unambiguous
+   * confirmation (navigate to the conference page, or an inline message). */
+  onDuplicateMatched: (conference: Conference) => void;
   onCreated: (conference: Conference) => void;
   deferAttendance?: boolean;
 }) {
@@ -252,41 +258,51 @@ export function AddConferenceForm({
       </div>
 
       {duplicateCandidates.length > 0 && (
-        <Alert className="border-line bg-paper">
+        <Alert className="border-error bg-error-bg border-2">
           <AlertDescription>
-            <p className="text-[13px] font-medium text-ink mb-2">
-              Did you mean one of these already-added conferences?
+            <p className="text-[14px] font-semibold text-error mb-2.5">
+              This looks like it&rsquo;s already in the catalog — check before adding a duplicate.
             </p>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {duplicateCandidates.map((candidate) => (
-                <div key={candidate.series.id} className="rounded-md border border-line bg-card p-2.5">
-                  <div className="text-[12.5px] font-semibold text-ink">{candidate.series.name}</div>
-                  {(candidateOccurrences.get(candidate.series.id) ?? []).map((occ) => (
-                    <button
-                      key={occ.id}
-                      type="button"
-                      className="mt-1 flex w-full items-center justify-between text-left text-[11.5px] text-slate hover:text-ink"
-                      onClick={() => onToggleCatalogAttendance(occ.id)}
-                    >
-                      <span>
-                        {formatDateRange(occ.start_date, occ.end_date)} · {occ.city}
-                      </span>
-                      <span className="font-medium text-brass">
-                        {myAttendingIds.has(occ.id) ? "✓ Going" : "Mark as going →"}
-                      </span>
-                    </button>
-                  ))}
+                <div key={candidate.series.id} className="rounded-md border border-error/40 bg-card p-3">
+                  <div className="text-[13px] font-semibold text-ink mb-2">{candidate.series.name}</div>
+                  <div className="space-y-2">
+                    {(candidateOccurrences.get(candidate.series.id) ?? []).map((occ) => {
+                      const going = myAttendingIds.has(occ.id);
+                      return (
+                        <div key={occ.id} className="flex items-center justify-between gap-2">
+                          <span className="text-[12px] text-ink-2">
+                            {formatDateRange(occ.start_date, occ.end_date)} · {occ.city}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={going ? "outline" : "default"}
+                            onClick={() => {
+                              onToggleCatalogAttendance(occ.id);
+                              if (!going) onDuplicateMatched(occ);
+                            }}
+                          >
+                            {going ? "✓ You're going" : "Mark as going"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
             {!dismissedDuplicates && (
-              <button
+              <Button
                 type="button"
-                className="mt-3 text-[11.5px] underline text-slate"
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
                 onClick={() => setDismissedDuplicates(true)}
               >
                 None of these — this is a different conference
-              </button>
+              </Button>
             )}
           </AlertDescription>
         </Alert>
@@ -374,8 +390,17 @@ export function AddConferenceForm({
         </Alert>
       )}
 
-      <Button type="submit" className="w-full" disabled={submitting || blockedByDuplicates}>
-        {submitting ? "Adding…" : "Add & mark me going"}
+      <Button
+        type="submit"
+        className="w-full"
+        variant={blockedByDuplicates ? "outline" : "default"}
+        disabled={submitting}
+      >
+        {submitting
+          ? "Adding…"
+          : blockedByDuplicates
+          ? "Resolve the match above first"
+          : "Add & mark me going"}
       </Button>
     </form>
   );

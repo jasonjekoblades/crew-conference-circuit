@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useMemberSession, isOnboarded } from "@/lib/auth/use-member-session";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type Teaser = { name: string; city: string; attendee_count: number };
-type ExistingMember = { id: string; name: string };
-
-type CheckResult = { atCapacity: boolean; members: ExistingMember[] };
+type CheckResult = { atCapacity: boolean; pilotFullMessage?: string };
 
 export default function EnterPage() {
   const router = useRouter();
@@ -25,6 +24,7 @@ export default function EnterPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [pickingName, setPickingName] = useState(false);
+  const [typedName, setTypedName] = useState("");
 
   useEffect(() => {
     if (session.status === "ready") {
@@ -61,7 +61,7 @@ export default function EnterPage() {
         setError(data.message ?? "That didn't work. Try again.");
         return;
       }
-      setCheckResult({ atCapacity: data.atCapacity, members: data.members });
+      setCheckResult({ atCapacity: data.atCapacity, pilotFullMessage: data.pilotFullMessage });
     } catch {
       setError("Couldn't reach the server. Try again.");
     } finally {
@@ -69,29 +69,44 @@ export default function EnterPage() {
     }
   }
 
-  async function confirmEntry(relinkMemberId: string | null) {
+  // Supabase caps anonymous sign-ins per IP per hour — measured at 30 on
+  // this project (Run 7, Stage 3). Plausible to hit on shared office/
+  // conference wifi once this is posted publicly, so it gets its own
+  // message rather than falling into the generic "couldn't start a
+  // session, try again" (which would just fail the same way on immediate
+  // retry, from the same IP, and read as the app being broken).
+  async function ensureSession(): Promise<{ session: Session } | { session: null; rateLimited: boolean }> {
+    const supabase = getSupabaseClient();
+    let { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      const { data, error: signInError } = await supabase.auth.signInAnonymously();
+      if (signInError || !data.session) {
+        return { session: null, rateLimited: signInError?.status === 429 };
+      }
+      sessionData = data;
+    }
+    return { session: sessionData.session! };
+  }
+
+  async function confirmEntry() {
     setSubmitting(true);
     setError(null);
 
     try {
-      const supabase = getSupabaseClient();
-      let { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session) {
-        const { data, error: signInError } = await supabase.auth.signInAnonymously();
-        if (signInError || !data.session) {
-          setError("Couldn't start a session. Try again.");
-          return;
-        }
-        sessionData = data;
+      const result = await ensureSession();
+      if (!result.session) {
+        setError(
+          "rateLimited" in result && result.rateLimited
+            ? "Too many people are joining from this network right now. Wait a few minutes and try again, or try switching from Wi-Fi to mobile data."
+            : "Couldn't start a session. Try again."
+        );
+        return;
       }
 
       const res = await fetch("/api/enter/confirm", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionData.session!.access_token}`,
-        },
-        body: JSON.stringify({ code, relinkMemberId }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${result.session.access_token}` },
+        body: JSON.stringify({ code }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -99,7 +114,42 @@ export default function EnterPage() {
         return;
       }
 
-      router.push(relinkMemberId ? "/" : "/onboarding");
+      router.push("/onboarding");
+    } catch {
+      setError("Couldn't reach the server. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRelink(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const result = await ensureSession();
+      if (!result.session) {
+        setError(
+          "rateLimited" in result && result.rateLimited
+            ? "Too many people are joining from this network right now. Wait a few minutes and try again, or try switching from Wi-Fi to mobile data."
+            : "Couldn't start a session. Try again."
+        );
+        return;
+      }
+
+      const res = await fetch("/api/enter/relink", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${result.session.access_token}` },
+        body: JSON.stringify({ code, name: typedName }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setError(data.message ?? "That didn't work. Try again.");
+        return;
+      }
+
+      router.push("/");
     } catch {
       setError("Couldn't reach the server. Try again.");
     } finally {
@@ -152,55 +202,50 @@ export default function EnterPage() {
                 </Button>
               </form>
             ) : pickingName ? (
-              <div className="space-y-3">
-                <p className="text-sm text-slate">Pick your name.</p>
-                <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                  {checkResult.members.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => confirmEntry(m.id)}
-                      className="w-full text-left px-3 py-2 rounded-md border border-line bg-card text-sm text-ink hover:bg-paper transition-colors disabled:opacity-50"
-                    >
-                      {m.name}
-                    </button>
-                  ))}
-                  {checkResult.members.length === 0 && (
-                    <p className="text-sm text-slate">No members yet.</p>
-                  )}
+              <form onSubmit={handleRelink} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="typed-name">What name did you use before?</Label>
+                  <Input
+                    id="typed-name"
+                    autoFocus
+                    required
+                    placeholder="Your full name"
+                    value={typedName}
+                    onChange={(e) => setTypedName(e.target.value)}
+                  />
                 </div>
                 {error && (
                   <Alert className="border-error bg-error-bg">
                     <AlertDescription className="text-error">{error}</AlertDescription>
                   </Alert>
                 )}
+                <Button type="submit" className="w-full" disabled={submitting || !typedName.trim()}>
+                  {submitting ? "Checking…" : "Continue"}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full"
-                  onClick={() => setPickingName(false)}
+                  onClick={() => {
+                    setPickingName(false);
+                    setError(null);
+                  }}
                   disabled={submitting}
                 >
                   Back
                 </Button>
-              </div>
+              </form>
             ) : (
               <div className="space-y-3">
                 {checkResult.atCapacity ? (
                   <Alert className="border-line bg-card">
                     <AlertDescription className="text-ink-2">
-                      The pilot is currently full. If you&rsquo;ve been here before, pick
-                      your name below.
+                      {checkResult.pilotFullMessage ?? "This pilot is currently full."} If you&rsquo;ve
+                      been here before, enter your name below.
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <Button
-                    type="button"
-                    className="w-full"
-                    disabled={submitting}
-                    onClick={() => confirmEntry(null)}
-                  >
+                  <Button type="button" className="w-full" disabled={submitting} onClick={confirmEntry}>
                     I&rsquo;m new here
                   </Button>
                 )}

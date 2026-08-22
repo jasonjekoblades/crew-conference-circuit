@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient, createRequestScopedSupabaseClient } from "@/lib/supabase/admin";
-import { verifyInviteCodeRequest, getMemberCap } from "@/lib/enter";
+import { verifyInviteCodeRequest, getMemberCap, getPilotFullMessage } from "@/lib/enter";
 
 /**
- * Step 2 of /enter: the client has already created its own anonymous
- * session (supabase.auth.signInAnonymously() — free, ungated, doesn't need
- * the code) and sends its access token here alongside the code, re-
- * validated independently of /check. Two outcomes:
+ * Step 2 of /enter, "I'm new here" only. The client has already created its
+ * own anonymous session (supabase.auth.signInAnonymously() — free,
+ * ungated, doesn't need the code) and sends its access token here alongside
+ * the code, re-validated independently of /check. Creates a fresh members
+ * row linked to this session, blocked at member_cap.
  *
- * - relinkMemberId set: "I've been here before" — repoint that existing
- *   member's auth_user_id at this session. CLAUDE.md §6: no ownership
- *   check on the target row on purpose ("this means a member could pick
- *   someone else's name... accepted risk. Do not add verification").
- * - relinkMemberId absent: "I'm new" — create a fresh members row linked
- *   to this session, blocked at member_cap.
+ * Returning members ("I've been here before") go through /api/enter/relink
+ * instead (Run 7, Stage 3) — that route matches a typed name server-side
+ * rather than accepting a client-supplied member id, since a client-trusted
+ * id is exactly the "browse and pick anyone" shortcut that route exists to
+ * remove.
  */
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization") ?? "";
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, message: "Missing session." }, { status: 401 });
   }
 
-  let body: { code?: unknown; relinkMemberId?: unknown };
+  let body: { code?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -30,7 +30,6 @@ export async function POST(request: NextRequest) {
   }
 
   const code = typeof body.code === "string" ? body.code : "";
-  const relinkMemberId = typeof body.relinkMemberId === "string" ? body.relinkMemberId : null;
   if (!code) {
     return NextResponse.json({ ok: false, message: "Enter the invite code." }, { status: 400 });
   }
@@ -48,36 +47,15 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminSupabaseClient();
 
-  if (relinkMemberId) {
-    const { data: target, error: targetError } = await admin
-      .from("members")
-      .select("id")
-      .eq("id", relinkMemberId)
-      .maybeSingle();
-
-    if (targetError || !target) {
-      return NextResponse.json({ ok: false, message: "Member not found." }, { status: 404 });
-    }
-
-    const { error: updateError } = await admin
-      .from("members")
-      .update({ auth_user_id: userData.user.id })
-      .eq("id", relinkMemberId);
-
-    if (updateError) {
-      return NextResponse.json({ ok: false, message: "Couldn't link that member." }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, memberId: relinkMemberId });
-  }
-
   const [{ count: memberCount }, cap] = await Promise.all([
     admin.from("members").select("id", { count: "exact", head: true }),
     getMemberCap(),
   ]);
 
   if ((memberCount ?? 0) >= cap) {
-    return NextResponse.json({ ok: false, message: "The pilot is full." }, { status: 403 });
+    await admin.from("rate_limit_events").insert({ bucket_key: "member-cap:rejected" });
+    const message = await getPilotFullMessage();
+    return NextResponse.json({ ok: false, message }, { status: 403 });
   }
 
   const { data: created, error: insertError } = await admin

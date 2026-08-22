@@ -6,9 +6,9 @@ import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
 type CodeCheckResult = { ok: true } | { ok: false; status: number; message: string };
 
-const ARTIFICIAL_DELAY_MS = 800;
+export const ARTIFICIAL_DELAY_MS = 800;
 
-function sleep(ms: number) {
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -80,4 +80,16 @@ export async function getMemberCap(): Promise<number> {
     .eq("key", "member_cap")
     .maybeSingle();
   return data?.value ? parseInt(data.value, 10) : 16;
+}
+
+const DEFAULT_PILOT_FULL_MESSAGE = "This pilot is full for now.";
+
+export async function getPilotFullMessage(): Promise<string> {
+  const admin = createAdminSupabaseClient();
+  const { data } = await admin
+    .from("app_settings")
+    .select("value")
+    .eq("key", "pilot_full_message")
+    .maybeSingle();
+  return data?.value || DEFAULT_PILOT_FULL_MESSAGE;
 }

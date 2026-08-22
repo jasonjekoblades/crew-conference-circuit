@@ -89,24 +89,21 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminSupabaseClient();
 
-  const { data: aiEnabledRow } = await admin
+  const { data: settingsRows } = await admin
     .from("app_settings")
-    .select("value")
-    .eq("key", "ai_enabled")
-    .maybeSingle();
-  if (aiEnabledRow?.value !== "true") {
+    .select("key, value")
+    .in("key", ["ai_enabled", "ai_global_daily_limit"]);
+  const settingsByKey = new Map((settingsRows ?? []).map((r) => [r.key, r.value]));
+  if (settingsByKey.get("ai_enabled") !== "true") {
     return NextResponse.json({ message: "AI lookup is currently turned off." }, { status: 403 });
   }
+  const globalDailyLimit = parseInt(settingsByKey.get("ai_global_daily_limit") ?? "40", 10);
 
-  const { limited: memberLimited } = await checkRateLimit(`ai-lookup:member:${member.id}`, 10, 1440);
-  if (memberLimited) {
-    return NextResponse.json({ message: "You've hit today's lookup limit (10/day)." }, { status: 429 });
-  }
-  const { limited: globalLimited } = await checkRateLimit("ai-lookup:global", 40, 1440);
-  if (globalLimited) {
-    return NextResponse.json({ message: "Today's lookup budget is used up. Try again tomorrow." }, { status: 429 });
-  }
-
+  // Run 7: cache is checked BEFORE any rate limit is consumed — repeat
+  // lookups of the same conference (expected to be common once ~100
+  // people are using the same seeded catalog) must be free and unlimited,
+  // not silently eating into the daily budget. Only a genuine cache MISS
+  // (an actual Anthropic call) counts against either cap.
   const normalized = normalizeQuery(query);
 
   const { data: cached } = await admin
@@ -118,6 +115,22 @@ export async function POST(request: NextRequest) {
   if (cached) {
     await admin.from("ai_lookups").insert({ member_id: member.id, query, result: cached.result, cached: true });
     return NextResponse.json({ result: cached.result as LookupResult, cached: true });
+  }
+
+  const { limited: memberLimited } = await checkRateLimit(`ai-lookup:member:${member.id}`, 10, 1440);
+  if (memberLimited) {
+    return NextResponse.json(
+      { message: "AI lookup has hit its daily limit for this pilot — enter the details below and it'll work exactly the same." },
+      { status: 429 }
+    );
+  }
+  const { limited: globalLimited } = await checkRateLimit("ai-lookup:global", globalDailyLimit, 1440);
+  if (globalLimited) {
+    await admin.from("rate_limit_events").insert({ bucket_key: "ai-lookup:global:rejected" });
+    return NextResponse.json(
+      { message: "AI lookup has hit its daily limit for this pilot — enter the details below and it'll work exactly the same." },
+      { status: 429 }
+    );
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

@@ -32,6 +32,7 @@ export default function OnboardingPage() {
   const [seriesList, setSeriesList] = useState<SeriesForMatching[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addConfirmation, setAddConfirmation] = useState<string | null>(null);
   const [payoff, setPayoff] = useState<PayoffEntry[] | null>(null);
   const [skipTeaser, setSkipTeaser] = useState<Teaser[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -212,11 +213,22 @@ export default function OnboardingPage() {
                 </div>
               )}
             </Card>
+            {addConfirmation && (
+              <Alert className="border-brass bg-card border-2 mt-3">
+                <AlertDescription className="text-ink font-semibold">
+                  ✓ {addConfirmation}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="mt-3 text-center">
               <button
                 type="button"
                 className="text-[12.5px] text-slate underline"
-                onClick={() => setShowAddForm((v) => !v)}
+                onClick={() => {
+                  setShowAddForm((v) => !v);
+                  setAddConfirmation(null);
+                }}
               >
                 {showAddForm ? "Hide" : "Can't find your conference? Add it"}
               </button>
@@ -231,9 +243,14 @@ export default function OnboardingPage() {
                   myAttendingIds={selectedIds}
                   onToggleCatalogAttendance={toggleConference}
                   deferAttendance
+                  onDuplicateMatched={(conference) => {
+                    setAddConfirmation(`You're going to ${conference.name} — it's checked in the list above.`);
+                    setShowAddForm(false);
+                  }}
                   onCreated={(conference) => {
                     setConferences((prev) => [...(prev ?? []), conference]);
                     setSelectedIds((prev) => new Set(prev).add(conference.id));
+                    setAddConfirmation(`Added ${conference.name} — you're going.`);
                     setShowAddForm(false);
                   }}
                 />

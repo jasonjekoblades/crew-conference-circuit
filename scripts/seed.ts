@@ -73,17 +73,37 @@ async function main() {
   console.log(`Seeding from ${seedPath}`);
 
   // --- app_settings ---------------------------------------------------
+  // invite_code_hash is the one row always re-set — re-running seed with a
+  // new INVITE_CODE is the documented way to rotate it. Every other row
+  // here is only ever INSERTed if missing: member_cap, ai_enabled, and the
+  // Run 7 caps/message are all curator-editable from /jeko43 without a
+  // deploy, and a later reseed (e.g. adding more conferences) must never
+  // silently clobber a runtime change back to these env-var defaults.
   const inviteCodeHash = createHash("sha256").update(INVITE_CODE.trim()).digest("hex");
-  const { error: settingsError } = await supabase.from("app_settings").upsert(
-    [
-      { key: "invite_code_hash", value: inviteCodeHash },
-      { key: "member_cap", value: String(MEMBER_CAP) },
-      { key: "ai_enabled", value: "false" },
-    ],
-    { onConflict: "key" }
+  const { error: inviteError } = await supabase
+    .from("app_settings")
+    .upsert({ key: "invite_code_hash", value: inviteCodeHash }, { onConflict: "key" });
+  if (inviteError) throw inviteError;
+
+  const { data: existingSettings } = await supabase.from("app_settings").select("key");
+  const existingKeys = new Set((existingSettings ?? []).map((r) => r.key));
+  const defaultsIfMissing: { key: string; value: string }[] = [
+    { key: "member_cap", value: String(MEMBER_CAP) },
+    { key: "ai_enabled", value: "false" },
+    { key: "ai_global_daily_limit", value: "100" },
+    {
+      key: "pilot_full_message",
+      value: "This pilot is full. It's capped while I test the idea — reach out to Jason Blades in the CREW community and I'll make room.",
+    },
+  ].filter((row) => !existingKeys.has(row.key));
+
+  if (defaultsIfMissing.length > 0) {
+    const { error: defaultsError } = await supabase.from("app_settings").insert(defaultsIfMissing);
+    if (defaultsError) throw defaultsError;
+  }
+  console.log(
+    `app_settings: invite code set; ${defaultsIfMissing.length > 0 ? `first-time defaults inserted for ${defaultsIfMissing.map((r) => r.key).join(", ")}` : "member_cap/ai_enabled/AI caps already set — left untouched"}`
   );
-  if (settingsError) throw settingsError;
-  console.log(`app_settings: invite code set, member_cap=${MEMBER_CAP}, ai_enabled=false`);
 
   // --- conference_series ------------------------------------------------
   const seriesIdBySlug = new Map<string, string>();

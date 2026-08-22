@@ -140,6 +140,7 @@ export default function AddConferencePage() {
               catalog={catalog}
               myAttendingIds={myAttendingIds}
               onToggleCatalogAttendance={toggleCatalogAttendance}
+              onDuplicateMatched={(conference) => router.push(`/c/${conference.slug}`)}
               onCreated={(conference) => router.push(`/c/${conference.slug}`)}
             />
           )}
