@@ -189,6 +189,17 @@ export default function EnterPage() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                   />
+                  <p className="text-[11px] text-slate">
+                    By entering, you agree to the{" "}
+                    <a href="/privacy" className="underline">
+                      privacy policy
+                    </a>{" "}
+                    and{" "}
+                    <a href="/terms" className="underline">
+                      terms
+                    </a>
+                    .
+                  </p>
                 </div>
 
                 {error && (
@@ -289,16 +300,6 @@ export default function EnterPage() {
             </div>
           </div>
         )}
-
-        <p className="text-center text-[11px] text-slate mt-10">
-          <a href="/privacy" className="underline">
-            Privacy
-          </a>{" "}
-          &middot;{" "}
-          <a href="/terms" className="underline">
-            Terms
-          </a>
-        </p>
       </div>
     </main>
   );

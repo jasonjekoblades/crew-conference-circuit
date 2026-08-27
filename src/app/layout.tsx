@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Newsreader } from "next/font/google";
+import { Footer } from "@/components/footer";
 import "./globals.css";
 
 const bodyFont = Inter({
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${bodyFont.variable} ${headingFont.variable} antialiased`}>
         {children}
+        <Footer />
       </body>
     </html>
   );

@@ -34,6 +34,12 @@ export async function checkRateLimit(
   }
 
   await admin.from("rate_limit_events").insert({ bucket_key: bucketKey });
+  // Opportunistic housekeeping (see the rate_limit_events migration) — this
+  // was defined as a DB function but never actually invoked anywhere, so
+  // these rows (which include IP addresses in the bucket_key) were being
+  // kept forever instead of the intended 1-day window. Cheap indexed
+  // delete, safe to run on every call given this app's traffic volume.
+  await admin.rpc("prune_old_rate_limit_events");
   return { limited: false };
 }
 
