@@ -149,7 +149,7 @@ export default function HomePage() {
     <main className="min-h-dvh bg-paper">
       <header className="flex items-center gap-3 px-4 py-4 border-b border-line bg-card">
         <span className="font-heading text-lg font-semibold text-ink">
-          Where&rsquo;s <span className="text-brass">CREW</span>
+          Where&rsquo;s your <span className="text-brass">CREW</span>
         </span>
         <Link
           href="/add"

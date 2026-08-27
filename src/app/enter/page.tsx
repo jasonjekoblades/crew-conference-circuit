@@ -165,7 +165,7 @@ export default function EnterPage() {
     <main className="min-h-dvh bg-paper flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <h1 className="font-heading text-2xl font-semibold text-ink text-center mb-1">
-          Where&rsquo;s <span className="text-brass">CREW</span>
+          Where&rsquo;s your <span className="text-brass">CREW</span>
         </h1>
         <p className="text-sm text-slate text-center mb-6">
           A private circuit for CREW members. Invite only.
