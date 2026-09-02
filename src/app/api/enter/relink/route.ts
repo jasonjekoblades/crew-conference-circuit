@@ -4,20 +4,21 @@ import { verifyInviteCodeRequest, ARTIFICIAL_DELAY_MS, sleep } from "@/lib/enter
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
 /**
- * Run 7, Stage 3: replaces the old "pick your name from a visible list"
- * relink flow. At 16 invited people, showing every name was a convenience;
- * posted to CREW's public forum with ~100+ members, that same list becomes
- * a directory anyone can browse and impersonate with one tap. This route
- * never returns the roster — the member types their name, it's matched
- * server-side, and a non-match and an ambiguous match get the exact same
- * generic response (same status, same message, same artificial delay) so
- * a caller can't distinguish "no such name" from "more than one member has
- * that name" by probing.
+ * Replaces an earlier "pick your name from a visible list" relink flow.
+ * Showing every name is a convenience among a handful of personally
+ * invited members, but becomes a directory anyone can browse and
+ * impersonate with one tap once the invite reaches a wider group. This
+ * route never returns the roster — the member types their name, it's
+ * matched server-side, and a non-match and an ambiguous match get the
+ * exact same generic response (same status, same message, same artificial
+ * delay) so a caller can't distinguish "no such name" from "more than one
+ * member has that name" by probing.
  *
  * This doesn't eliminate impersonation (CLAUDE.md §6 already accepts that
- * risk for 16 vetted peers) — it just stops it being a single tap against a
- * browsable list, matching the same brute-force posture already applied to
- * the invite code itself: rate-limited by IP, delayed, logged.
+ * risk for a small group of vetted peers) — it just stops it being a
+ * single tap against a browsable list, matching the same brute-force
+ * posture already applied to the invite code itself: rate-limited by IP,
+ * delayed, logged.
  */
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization") ?? "";

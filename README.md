@@ -81,7 +81,7 @@ cp .env.example .env.local   # then fill in the values below
 | `ANTHROPIC_API_KEY` | **server only** | Conference lookup. Set a monthly spend cap in the Anthropic Console |
 | `INVITE_CODE` | server only | Hashed into `app_settings` on seed. The only gate. |
 | `FOUNDING_MEMBER_NAME` | seed script only | Name of the first member seeded as curator |
-| `MEMBER_CAP` | seed script only | Starting value for `app_settings.member_cap`; editable at runtime after seeding from `/jeko43` |
+| `MEMBER_CAP` | seed script only | Starting value for `app_settings.member_cap`; editable at runtime after seeding from `/panel` |
 
 No email service credentials. The app sends no email.
 
@@ -164,9 +164,9 @@ Guardrails (all in `CLAUDE.md` §9, all mandatory):
 - Server-side only. The API key never reaches the client.
 - Approved-member sessions only.
 - 10 lookups per member per day; a global daily limit as well, both editable at runtime
-  from `/jeko43` (see "Project layout" — this is the curator panel, not at `/admin`).
+  from `/panel` (see "Project layout" — this is the curator panel, not at `/admin`).
 - Aggressive caching — the same query must never hit the API twice.
-- Kill switch in `app_settings.ai_enabled`, toggleable from `/jeko43`.
+- Kill switch in `app_settings.ai_enabled`, toggleable from `/panel`.
 - Hard monthly spend cap set in the Anthropic Console — the one guardrail that survives
   a bug in the code above.
 
@@ -197,9 +197,9 @@ src/
     c/[slug]/          Conference detail + full roster
     m/[id]/            Member card (deliberately thin)
     me/                Your name, your conferences, delete
-    jeko43/            Curator tools: member list, conference review/merge, AI kill
-                        switch, live caps, stats. Deliberately not at /admin — see
-                        Known gaps.
+    panel/             Curator tools: member list, conference review/merge, AI kill
+                       switch, live caps, stats. Deliberately not at /admin — see
+                       Known gaps.
     privacy/, terms/   Real copy, not placeholders
     api/               Server routes (enter, AI lookup, admin actions)
   styles/tokens.css    ALL colors and type scale. One file, on purpose.
@@ -260,7 +260,7 @@ describes what's actually built.
 | Core loop | home (tap-to-toggle), conference detail + roster, onboarding, `/me` | ✅ Complete |
 | Member-added conferences | manual entry + duplicate detection + AI lookup, shared between `/add` and onboarding | ✅ Complete |
 | Member cards | `/m/[id]` — name, avatar, their conferences | ✅ Complete |
-| Curator tools | member list/remove, conference review/edit/verify/delete/merge, AI kill switch, live-editable caps, at-a-glance stats — at `/jeko43`, not `/admin` (deliberately renamed for obscurity) | ✅ Complete |
+| Curator tools | member list/remove, conference review/edit/verify/delete/merge, AI kill switch, live-editable caps, at-a-glance stats — at `/panel`, not `/admin` | ✅ Complete |
 | Privacy & terms pages | real copy, verified against the actual schema/RLS/routes | ✅ Complete |
 | Meetups | poll → confirm state machine, un-attend cascade, official flag (`CLAUDE.md` §10) | ❌ Not started |
 | Calendar view | `/calendar` — mine/all toggle, month grid | ❌ Not started |
@@ -287,10 +287,10 @@ settled decision rather than raising a new idea.
 - **No CREW member data.** Everything in the seed catalog is public conference
   information. No real member names, emails, or attendance data exist in this repo, and
   none should be added until CREW grants permission.
-- **The curator panel is at `/jeko43`, not `/admin`.** Deliberately renamed for
-  obscurity — the route is gated identically either way, and the rename adds no real
-  security. `CLAUDE.md`'s references to `/admin` predate the rename and describe the
-  panel's function correctly, just not its current URL.
+- **The curator panel is at `/panel`, not `/admin`.** The route is gated identically
+  either way — moving it off the obvious URL adds no real security. `CLAUDE.md`'s
+  references to `/admin` predate the rename and describe the panel's function correctly,
+  just not its current URL.
 - **Two conferences are marked unverified**: one seeded entry, left that way
   deliberately as a working example of the unverified-marker behavior (`CLAUDE.md` §13),
   and one member-added entry awaiting curator review — normal workflow state, not a bug.

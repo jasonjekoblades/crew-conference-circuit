@@ -9,10 +9,9 @@ type Stats = {
 };
 
 /**
- * Run 7, Stage 3b — no email, no notifications (cut deliberately). This is
- * the entire "did anything get turned away" mechanism: a curator opens
- * /jeko43 and sees it immediately, rather than finding out from a forum
- * comment days later. Numbers are "last 24h" to match the rolling window
+ * With no email or notifications (cut deliberately), this is the entire
+ * "did anything get turned away" mechanism: a curator opens /panel and
+ * sees it immediately. Numbers are "last 24h" to match the rolling window
  * the actual rate limiters use — not calendar-day, which would drift from
  * what's really gating access.
  */

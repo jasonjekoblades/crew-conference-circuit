@@ -4,7 +4,7 @@
 -- re-seeding must never silently clobber a curator's runtime setting.
 --
 -- ai_global_daily_limit: was a hardcoded 40 in the route; now editable from
--- /jeko43 without a deploy, same as member_cap already was.
+-- the curator panel without a deploy, same as member_cap already was.
 -- pilot_full_message: shown to a visitor when member_cap is reached, and
 -- reused as the generic "how to get unstuck" line on /enter — curator-
 -- editable so Jason isn't hardcoded into app copy.

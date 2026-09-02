@@ -57,7 +57,7 @@ until confirmed. In the PoC that's one person checking. At scale it needs a real
 name again. Fine for a pilot among people who know each other; not how a real version
 would work.
 
-**Capped at 16 members.** Deliberate. It's a pilot.
+**Capped at a small number of members.** Deliberate. It's a pilot.
 
 **Self-entered data.** Nobody's calendar is being read. Members say where they're going.
 That's the whole model, and it's also why it's entirely opt-in — if you don't want a

@@ -8,14 +8,14 @@ import { verifyInviteCodeRequest, getMemberCap, getPilotFullMessage } from "@/li
  * required or created yet, so a wrong guess never creates a throwaway
  * anonymous auth user.
  *
- * Run 7, Stage 3: this used to also return the full members list so a
- * returning member could tap their name from a visible roster. At 16
- * invited people that was a convenience; posted publicly to ~100+ CREW
- * members it becomes a browsable directory anyone can pick a name from
- * before proving they're that person. The roster is gone from this
- * response entirely — returning members now type their name and it's
- * matched server-side in /api/enter/relink, which never confirms or denies
- * a name exists until it actually matches.
+ * This used to also return the full members list so a returning member
+ * could tap their name from a visible roster. That's fine among a
+ * handful of personally-invited people, but becomes a browsable directory
+ * anyone can pick a name from before proving they're that person once the
+ * invite reaches a wider group. The roster is gone from this response
+ * entirely — returning members now type their name and it's matched
+ * server-side in /api/enter/relink, which never confirms or denies a name
+ * exists until it actually matches.
  */
 export async function POST(request: NextRequest) {
   let body: { code?: unknown };

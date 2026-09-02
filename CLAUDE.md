@@ -11,9 +11,9 @@ A private web app for members of CREW, an executive peer community. Members mark
 which industry conferences they're attending, see which other members will be there,
 and organize meetups on the ground.
 
-It is a **proof of concept**, capped at 16 approved users, run by a single member
-(not by CREW itself). It is not connected to CREW's Circle community. It may be later,
-so build in a way that doesn't foreclose that (see §11).
+It is a **proof of concept**, capped at a small number of approved members, run by a
+single member (not by CREW itself). It is not connected to CREW's Circle community. It
+may be later, so build in a way that doesn't foreclose that (see §11).
 
 **The core loop:** open the app → tap the conferences you're attending → see who else
 is going → coordinate a dinner.
@@ -26,7 +26,7 @@ below is subordinate to making input take under 60 seconds and feel rewarding.
 ## 2. Non-negotiable constraints
 
 1. **No accounts, no email, no passwords.** One shared invite code is the only gate.
-   These are 16 vetted peers looking at a list of public conferences — account
+   These are a handful of vetted peers looking at a list of public conferences — account
    infrastructure costs more than it protects. See §6.
 2. **Mobile-first.** The primary use is a phone in a conference hallway. Desktop is
    secondary but must not look broken.
@@ -36,8 +36,8 @@ below is subordinate to making input take under 60 seconds and feel rewarding.
 4. **Never build messaging.** Members message each other on CREW's own platform.
    Contact affordances are outbound links only.
 5. **Members self-identify by name only.** No email is collected. A future migration to
-   CREW SSO maps names to real identities once — a one-time reconciliation of 16 rows,
-   which is cheaper than the email infrastructure it replaces.
+   CREW SSO maps names to real identities once — a one-time reconciliation of a handful
+   of rows, which is cheaper than the email infrastructure it replaces.
 6. **The Anthropic API key is never exposed client-side.** See §9.
 
 ---
@@ -159,8 +159,8 @@ Notes:
 **There is no email in this app.** No magic links, no SMTP, no notifications, no
 approval queue, no password. A member never receives a message from this system.
 
-Rationale: the pilot is 16 people the curator already knows personally, sharing which
-public conferences they plan to attend. Email-based auth would add SMTP configuration, a
+Rationale: the pilot is a small group the curator already knows personally, sharing
+which public conferences they plan to attend. Email-based auth would add SMTP configuration, a
 verified sending domain, rate limits, deliverability failures against corporate mail
 scanners, and an approval queue — all to protect information that is, by design, shared
 with everyone who gets in. The invite code is the gate. That is proportionate.
@@ -171,17 +171,17 @@ with everyone who gets in. The invite code is the gate. That is proportionate.
 2. Wrong code → generic failure, with a short delay. No hint about what's wrong.
 3. Correct code → `supabase.auth.signInAnonymously()` creates an anonymous session, and
    a `members` row is created linked to that anonymous user. Straight into onboarding.
-4. **Hard cap:** if member count >= `member_cap` (default 16), the code stops working
-   and the visitor sees a message that the pilot is full.
+4. **Hard cap:** if member count >= `member_cap` (a small default, see `.env.example`),
+   the code stops working and the visitor sees a message that the pilot is full.
 
 **Returning members.** The session lives in localStorage and persists. If it's lost
 (cleared browser, new device), the member re-enters the invite code and is shown the
 list of existing members to pick themselves from — which restores their identity and
 re-links the row to the new anonymous user. Also offer "I'm new here."
 
-Yes, this means a member could pick someone else's name. Among 16 vetted peers viewing
-public conference schedules, that is an acceptable risk and the honest tradeoff for
-deleting the entire account system. Do not add verification to close it.
+Yes, this means a member could pick someone else's name. Among a small group of vetted
+peers viewing public conference schedules, that is an acceptable risk and the honest
+tradeoff for deleting the entire account system. Do not add verification to close it.
 
 **Curator.** `is_curator` is set directly in the database by the maintainer. There is no
 in-app promotion path and no self-service route to it.
@@ -395,7 +395,8 @@ marker is not optional.
 - Route rejects any request without a valid member session.
 - **Per-member limit:** 10 lookups per rolling 24h.
 - **Global limit:** 40 lookups per day across all users. (At ~$0.034 per lookup this
-  caps worst-case exposure near $40/month. 16 members will not come close.)
+  caps worst-case exposure near $40/month — well above what a small pilot group would
+  ever use.)
 - **Kill switch:** `app_settings.ai_enabled`. When false, the route returns immediately
   and the UI falls back to manual entry. Toggleable from `/admin`.
 - **Cache aggressively:** normalize the query (lowercase, strip punctuation) and check
@@ -443,8 +444,8 @@ the meetup first.
 Do not integrate with Circle now — it requires an admin's cooperation and a paid API tier.
 Just don't foreclose it:
 
-- Members self-identify by name; mapping 16 names to CREW identities at migration is a
-  one-time reconciliation (§2.5)
+- Members self-identify by name; mapping those names to CREW identities at migration is
+  a one-time reconciliation (§2.5)
 - Token auth, iframe-safe (§2.3)
 - Keep auth logic in one module so it can be swapped for SSO later
 - No profile data that would need migrating — that's why member pages are thin
@@ -457,7 +458,7 @@ Just don't foreclose it:
 messages. Resend is not a dependency. `RESEND_API_KEY` is not an environment variable.
 Supabase SMTP is not configured because nothing uses it.
 
-The curator communicates with the 16 pilot members directly, outside the app.
+The curator communicates with pilot members directly, outside the app.
 
 If a future version needs email, that's a decision to make then, with a reason. Do not
 add a notification system because it seems expected.

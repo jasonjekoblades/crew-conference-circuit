@@ -76,7 +76,7 @@ async function main() {
   // invite_code_hash is the one row always re-set — re-running seed with a
   // new INVITE_CODE is the documented way to rotate it. Every other row
   // here is only ever INSERTed if missing: member_cap, ai_enabled, and the
-  // Run 7 caps/message are all curator-editable from /jeko43 without a
+  // other caps/message are all curator-editable from /panel without a
   // deploy, and a later reseed (e.g. adding more conferences) must never
   // silently clobber a runtime change back to these env-var defaults.
   const inviteCodeHash = createHash("sha256").update(INVITE_CODE.trim()).digest("hex");

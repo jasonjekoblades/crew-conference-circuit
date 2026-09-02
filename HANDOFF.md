@@ -12,7 +12,7 @@ It's the operational map: where things live, who can access what, and what
 
 A live, single-maintainer proof of concept. Not affiliated with or run by
 CREW itself — one member built it to demonstrate the idea before asking
-CREW to adopt it for real. Capped at 16 pilot users, invite-only.
+CREW to adopt it for real. Capped at a small number of pilot users, invite-only.
 
 **Live URL:** https://crew-conference-circuit.vercel.app
 
@@ -29,19 +29,19 @@ CREW to adopt it for real. Capped at 16 pilot users, invite-only.
   deferred; the core loop was the priority.
 - ❌ Calendar view. Not started.
 - 15 seeded conferences. Spec calls for expanding to 30–50 before opening
-  the pilot to all 16 members — not done yet.
+  the pilot more broadly — not done yet.
 
 ---
 
 ## Accounts and where things live
 
-**GitHub** — `github.com/jasonjekoblades/crew-conference-circuit` (private).
-Source of truth for code. Not connected to Vercel's Git integration (see
-below) — pushing here does not by itself trigger a deploy.
+**GitHub** — this repository (private). Access shared directly rather than
+recorded here. Source of truth for code. Not connected to Vercel's Git
+integration (see below) — pushing here does not by itself trigger a deploy.
 
-**Vercel** — project `crew-conference-circuit`, team `jeko2`
-(org id `team_osHCgN3a5YrwMJuVh9J3IZoC`). Whoever has access to that Vercel
-team can manage env vars, view deploy logs, and see the domain.
+**Vercel** — project `crew-conference-circuit`. Account/team access shared
+directly rather than recorded here. Whoever has access can manage env
+vars, view deploy logs, and see the domain.
 
 Deploys currently happen by running `vercel --prod` from a local clone —
 **not** via GitHub push-to-deploy. If you'd rather have deploys fire
@@ -90,11 +90,12 @@ can be set by re-running `npm run seed` with a new `INVITE_CODE` in
 
 Run 5 deliberately deleted `title`, `company`, and `linkedin_url` from
 `members` entirely, everywhere. This wasn't a scope cut for time — it's a
-bet that a parallel profile system for a 16-person pilot creates work to
+bet that a parallel profile system for a small pilot creates work to
 migrate away from once this connects to CREW's own member directory, where
 that data already lives. If you're the one doing that Circle integration,
-this means member identity resolution is exactly "map 16 names to 16 real
-CREW identities," a one-time reconciliation — not a data migration.
+this means member identity resolution is exactly "map each pilot member's
+name to their real CREW identity," a one-time reconciliation — not a data
+migration.
 
 ---
 
@@ -105,8 +106,8 @@ later (`CLAUDE.md` §11), even though none of that integration work has
 started. What's already in place to make it easier:
 
 - **Identity**: members self-identify by name only, no email collected —
-  reconciling ~16 names to real Circle identities is a one-time manual
-  step, not a migration script.
+  reconciling a handful of names to real Circle identities is a one-time
+  manual step, not a migration script.
 - **Auth**: token-in-localStorage, not cookies, specifically because a
   cookie-based session breaks inside a third-party iframe (which is how
   this would eventually be embedded in Circle). Don't migrate this to

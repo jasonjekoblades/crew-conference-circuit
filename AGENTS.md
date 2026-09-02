@@ -14,7 +14,7 @@ Most questions you're about to ask are answered in one of those two files.
 ## What this project is
 
 A private web app letting members of a peer community see which conferences other
-members are attending. Proof of concept, 16 users, invite-only.
+members are attending. Proof of concept, invite-only, capped at a small pilot group.
 
 **The core loop — a member marks conferences and sees who else is going — is the entire
 product.** Meetups are secondary (`CLAUDE.md` §10). When trading off effort or
@@ -41,7 +41,7 @@ resolving ambiguity, the core loop wins.
 **Email** (§6, §12), **per-member visibility settings** (§7), and **profile fields —
 title, company, LinkedIn** (§8). A member is a name and a list of conferences. CREW's own
 profiles supply the rest in the full version. Both were fully specced
-and then deliberately removed as disproportionate for a 16-person pilot sharing public
+and then deliberately removed as disproportionate for a small pilot sharing public
 conference schedules. Every member sees every other member's conferences by name, and
 attendee counts always equal the number of names shown. If you find yourself adding a
 notification, a signup flow, or a privacy toggle, stop and read those sections.

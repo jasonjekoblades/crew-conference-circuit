@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { requireMember } from "@/lib/require-member";
 
-// Run 7, Stage 3b: "I need to know when caps are hit... I open /jeko43 and
-// immediately know whether anything is being turned away." No email, no
-// notifications (cut deliberately) — this is the entire mechanism: a
-// curator-gated read of what happened in roughly the last 24 hours.
+// With no email or notifications (cut deliberately), this is the entire
+// mechanism for a curator to see whether anything is being turned away:
+// a gated read of what happened in roughly the last 24 hours, surfaced
+// in /panel.
 export async function GET(request: NextRequest) {
   const member = await requireMember(request);
   if (!member || !member.is_curator) {
