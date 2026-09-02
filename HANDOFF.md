@@ -119,7 +119,7 @@ started. What's already in place to make it easier:
 What integration actually requires, per `CLAUDE.md` §11: CREW admin
 cooperation and a paid Circle API tier. Neither exists yet — this is a
 business/partnership step, not an engineering one, and it hasn't been
-raised with CREW formally yet. **`reference/deferred-features.md`** has the
+raised with CREW formally yet. **`deferred-features.md`** has the
 pitch framing prepared for that conversation — what's cut and why, what a
 real version would add, and the recommended order for asking CREW to try
 it, use the name, and eventually integrate it properly.

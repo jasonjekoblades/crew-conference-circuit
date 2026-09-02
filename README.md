@@ -3,10 +3,13 @@
 A private web app that lets members of [CREW](https://crewexec.com/) see which
 conferences other members are attending, and coordinate meeting up.
 
-**Status:** proof of concept. Capped at 16 pilot users, invite-only, all data
-self-entered and opt-in. Not affiliated with or endorsed by CREW — this is a member-built
-prototype intended to demonstrate the concept and, if it lands, be rebuilt natively
-inside CREW's Circle community.
+**Status:** proof of concept, invite-only, all data self-entered and opt-in. The member
+cap started at 16 (`CLAUDE.md` §1) and has since been raised to 100 in the live
+deployment to open the pilot more broadly — it's a value in `app_settings`, editable from
+`/jeko43`, not a hardcoded limit. Not affiliated with or endorsed by CREW — this is a
+member-built prototype intended to demonstrate the concept and, if it lands, be rebuilt
+natively inside CREW's Circle community. **See [`HANDOFF-CREW.md`](./HANDOFF-CREW.md) for
+what it actually proved and real usage numbers.**
 
 ---
 
@@ -39,10 +42,15 @@ Despite the filename, `CLAUDE.md` is tool-agnostic. It's the spec regardless of 
 assistant or human is reading it. See [`AGENTS.md`](./AGENTS.md) for the short version
 that other harnesses (Cursor, Codex, Copilot) should pick up.
 
-Picking this project up from someone else, or planning the eventual move into CREW's
-Circle platform? **[`HANDOFF.md`](./HANDOFF.md)** has the operational map — account
-access, credentials, deploy process, and the migration path — that this README and
-`CLAUDE.md` don't cover.
+**If you're a developer at CREW picking this project up to rebuild it properly,
+start with [`HANDOFF-CREW.md`](./HANDOFF-CREW.md)** — what this proved, what to keep,
+what to throw away, and the Circle-plan question to check before anything else. Read it
+before this file.
+
+Picking this project up as the existing maintainer, or planning the eventual move into
+CREW's Circle platform? **[`HANDOFF.md`](./HANDOFF.md)** has the operational map —
+account access, credentials, deploy process, and the migration path — that this README
+and `CLAUDE.md` don't cover.
 
 ---
 
@@ -176,28 +184,36 @@ Roughly $0.034 per lookup at current pricing.
 ## Project layout
 
 ```
-CLAUDE.md              Product spec — the source of truth
-AGENTS.md              Short pointer file for AI coding tools
-README.md              This file
+CLAUDE.md               Product spec — the source of truth
+HANDOFF-CREW.md         Start here if you're rebuilding this at CREW
+HANDOFF.md              Operational map for the existing maintainer (accounts, deploy)
+deferred-features.md    What was cut and why — read before rebuilding anything
+AGENTS.md               Short pointer file for AI coding tools
+README.md               This file
 
 src/
   app/                 Next.js App Router
     page.tsx           Home — the core loop. The screen that matters.
     enter/             Invite code — the only gate
     onboarding/        Name → conferences → payoff (3 steps, no profile)
+    add/               Add-a-conference flow (shared with onboarding step 2)
     c/[slug]/          Conference detail + full roster
     m/[id]/            Member card (deliberately thin)
     me/                Your name, your conferences, delete
-    admin/             Curator: member list, AI kill switch
-    api/               Server routes (enter, AI lookup)
+    jeko43/            Curator tools: member list, conference review/merge, AI kill
+                        switch, live caps, stats. Deliberately not at /admin — see
+                        Known gaps.
+    privacy/, terms/   Real copy, not placeholders
+    api/               Server routes (enter, AI lookup, admin actions)
   styles/tokens.css    ALL colors and type scale. One file, on purpose.
 
 supabase/
   migrations/          Schema + RLS. Policies live with their tables.
   VERIFY.md            Manual verification walkthrough
+  tests/access-check.ts  Real anonymous-session RLS test (`npm run test:access`)
 
 scripts/seed.ts        Conference catalog + invite code hash
-reference/             Wireframe, seed data, original build prompts
+reference/             Wireframe, original seed data, original build prompts
 ```
 
 ---
@@ -219,9 +235,9 @@ reference/             Wireframe, seed data, original build prompts
 
 Two checks carry disproportionate weight:
 
-1. **RLS holds.** Run `npm run test:visibility`. It seeds test members and confirms a
-   valid session reads the full roster while no session reads nothing. A bug here is a
-   privacy incident, not a glitch.
+1. **RLS holds.** Run `npm run test:access`. It creates real anonymous sessions and
+   confirms a linked session reads the full roster while an unlinked one reads nothing.
+   A bug here is a privacy incident, not a glitch.
 2. **No session reads nothing.** Open the app without entering the invite code and
    confirm every table returns zero rows. `supabase/VERIFY.md` has the steps.
 
@@ -238,12 +254,20 @@ they are not part of the Vercel build.
 
 ## Roadmap
 
+The `CLAUDE.md` §15 milestone labels (M1–M4) are the original plan; this table is what's
+actually built as of Run 8 (2026-08-22).
+
 | | | |
 |---|---|---|
-| M1 | Access, schema, RLS | ✅ Complete (auth model revised — see §6) |
-| M2 | Core loop: home, conference detail, onboarding, member-added conferences | 🔨 In progress |
-| M3 | Meetups — poll → confirm, un-attend cascade, official flag | Not started |
-| M4 | Calendar views, member cards | Not started |
+| Access, schema, RLS | invite code + anonymous sessions, RLS on every table | ✅ Complete |
+| Core loop | home (tap-to-toggle), conference detail + roster, onboarding, `/me` | ✅ Complete |
+| Member-added conferences | manual entry + duplicate detection + AI lookup, shared between `/add` and onboarding | ✅ Complete |
+| Member cards | `/m/[id]` — name, avatar, their conferences | ✅ Complete |
+| Curator tools | member list/remove, conference review/edit/verify/delete/merge, AI kill switch, live-editable caps, at-a-glance stats — at `/jeko43`, not `/admin` (deliberately renamed for obscurity) | ✅ Complete |
+| Privacy & terms pages | real copy, verified against the actual schema/RLS/routes | ✅ Complete |
+| Meetups | poll → confirm state machine, un-attend cascade, official flag (`CLAUDE.md` §10) | ❌ Not started |
+| Calendar view | `/calendar` — mine/all toggle, month grid | ❌ Not started |
+| Seed catalog expansion | spec calls for 30–50 conferences before opening beyond the pilot; still at the original 15 seeded + whatever members have added | ❌ Not started |
 
 **Explicitly out of scope**, and likely to stay that way: in-app messaging, photo
 uploads, a "considering" attendance state, session-level matching, calendar sync,
@@ -258,13 +282,25 @@ settled decision rather than raising a new idea.
 ## Known gaps
 
 - **No email at all, by design.** The curator distributes the invite code and contacts
-  members directly. Fine at 16 users; a real deployment inside Circle would inherit
+  members directly. Fine at pilot scale; a real deployment inside Circle would inherit
   identity and notifications from Circle.
 - **Design tokens are placeholder navy.** Real CREW brand values pending.
-- **No automated test suite yet.** Verification is currently script-driven and manual.
+- **No automated test suite yet**, beyond `npm run test:access` for RLS. Verification is
+  otherwise script-driven and manual (`supabase/VERIFY.md`).
 - **No CREW member data.** Everything in the seed catalog is public conference
   information. No real member names, emails, or attendance data exist in this repo, and
   none should be added until CREW grants permission.
+- **The admin panel is at `/jeko43`, not `/admin`.** Deliberately renamed for obscurity
+  (Run 6) — the route is gated identically either way, the rename adds no real security.
+  `CLAUDE.md`'s references to `/admin` predate the rename and describe the panel's
+  function correctly, just not its current URL.
+- **Two seed/member-added conferences are unverified**: `HITEC North America 2027`
+  (deliberately, per `CLAUDE.md` §13 — it's the live example of the unverified marker)
+  and one member-added conference awaiting curator review, which is normal workflow
+  state, not a bug.
+- **A previously-open add-flow bug (the "TRANSACT dead end") is fixed** — see the commit
+  titled "Fix add-flow dead ends, open pilot to ~100 people." No action needed; noted
+  here in case it turns up in older notes or commit messages.
 
 ---
 
