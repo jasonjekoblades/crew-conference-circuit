@@ -3,13 +3,11 @@
 A private web app that lets members of [CREW](https://crewexec.com/) see which
 conferences other members are attending, and coordinate meeting up.
 
-**Status:** proof of concept, invite-only, all data self-entered and opt-in. The member
-cap started at 16 (`CLAUDE.md` §1) and has since been raised to 100 in the live
-deployment to open the pilot more broadly — it's a value in `app_settings`, editable from
-`/jeko43`, not a hardcoded limit. Not affiliated with or endorsed by CREW — this is a
-member-built prototype intended to demonstrate the concept and, if it lands, be rebuilt
-natively inside CREW's Circle community. **See [`HANDOFF-CREW.md`](./HANDOFF-CREW.md) for
-what it actually proved and real usage numbers.**
+**Status:** working prototype. All data is self-entered and opt-in. Not affiliated with
+or endorsed by CREW — this is a member-built demonstration of the concept, intended to be
+rebuilt natively inside CREW's own Circle community rather than run as-is.
+**If you're picking this up to rebuild it at CREW, start with
+[`HANDOFF-CREW.md`](./HANDOFF-CREW.md)**, not this file.
 
 ---
 
@@ -42,15 +40,9 @@ Despite the filename, `CLAUDE.md` is tool-agnostic. It's the spec regardless of 
 assistant or human is reading it. See [`AGENTS.md`](./AGENTS.md) for the short version
 that other harnesses (Cursor, Codex, Copilot) should pick up.
 
-**If you're a developer at CREW picking this project up to rebuild it properly,
-start with [`HANDOFF-CREW.md`](./HANDOFF-CREW.md)** — what this proved, what to keep,
-what to throw away, and the Circle-plan question to check before anything else. Read it
-before this file.
-
-Picking this project up as the existing maintainer, or planning the eventual move into
-CREW's Circle platform? **[`HANDOFF.md`](./HANDOFF.md)** has the operational map —
-account access, credentials, deploy process, and the migration path — that this README
-and `CLAUDE.md` don't cover.
+If you're maintaining or deploying this specific prototype rather than rebuilding it —
+account access, credentials, deploy process — see [`HANDOFF.md`](./HANDOFF.md), which
+this README and `CLAUDE.md` don't cover.
 
 ---
 
@@ -88,6 +80,8 @@ cp .env.example .env.local   # then fill in the values below
 | `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Bypasses RLS entirely. Never prefix with `NEXT_PUBLIC_` |
 | `ANTHROPIC_API_KEY` | **server only** | Conference lookup. Set a monthly spend cap in the Anthropic Console |
 | `INVITE_CODE` | server only | Hashed into `app_settings` on seed. The only gate. |
+| `FOUNDING_MEMBER_NAME` | seed script only | Name of the first member seeded as curator |
+| `MEMBER_CAP` | seed script only | Starting value for `app_settings.member_cap`; editable at runtime after seeding from `/jeko43` |
 
 No email service credentials. The app sends no email.
 
@@ -135,9 +129,10 @@ directly. Entering it creates a Supabase *anonymous* session and a `members` row
 is no signup, no approval queue, no password, and no magic link.
 
 Identity is therefore device-bound. A member who clears their browser re-enters the code
-and picks their name from a list to restore it. This is spoofable in principle; among 16
-vetted peers viewing public conference schedules, it's the accepted tradeoff for
-deleting the entire account system. Don't add verification to close it.
+and types their name to restore it; the server matches it without ever returning the
+full member list to an unauthenticated request. This is spoofable in principle — among a
+small group of vetted members viewing public conference schedules, it's the accepted
+tradeoff for deleting the entire account system. Don't add verification to close it.
 
 **Everyone sees everything.** There is no per-member visibility setting. Every member
 sees every other member's conferences by name, and attendee counts always equal the
@@ -168,9 +163,10 @@ Guardrails (all in `CLAUDE.md` §9, all mandatory):
 
 - Server-side only. The API key never reaches the client.
 - Approved-member sessions only.
-- 10 lookups per member per day, 40 per day globally.
+- 10 lookups per member per day; a global daily limit as well, both editable at runtime
+  from `/jeko43` (see "Project layout" — this is the curator panel, not at `/admin`).
 - Aggressive caching — the same query must never hit the API twice.
-- Kill switch in `app_settings.ai_enabled`, toggleable from `/admin`.
+- Kill switch in `app_settings.ai_enabled`, toggleable from `/jeko43`.
 - Hard monthly spend cap set in the Anthropic Console — the one guardrail that survives
   a bug in the code above.
 
@@ -187,7 +183,8 @@ Roughly $0.034 per lookup at current pricing.
 CLAUDE.md               Product spec — the source of truth
 HANDOFF-CREW.md         Start here if you're rebuilding this at CREW
 HANDOFF.md              Operational map for the existing maintainer (accounts, deploy)
-deferred-features.md    What was cut and why — read before rebuilding anything
+deferred-features.md    Background: original notes on what was cut and why (optional —
+                         HANDOFF-CREW.md covers the same ground for a CREW rebuild)
 AGENTS.md               Short pointer file for AI coding tools
 README.md               This file
 
@@ -223,8 +220,8 @@ reference/             Wireframe, original seed data, original build prompts
 - **Design tokens are centralized.** Every color and type value lives in
   `src/styles/tokens.css`. Never hardcode a hex value in a component — the CREW brand
   palette is expected to change and it must be a one-file edit.
-- **Mobile first.** Most pilot users will open this on a phone, standing in a hallway at
-  a conference. Desktop is the secondary case.
+- **Mobile first.** The primary use case is a phone in a conference hallway. Desktop is
+  the secondary case.
 - **No new dependencies without a reason** that survives being written down.
 - `npm run build` and `npm run lint` must pass before any commit.
 - Migrations are append-only once applied to the deployed database.
@@ -254,8 +251,8 @@ they are not part of the Vercel build.
 
 ## Roadmap
 
-The `CLAUDE.md` §15 milestone labels (M1–M4) are the original plan; this table is what's
-actually built as of Run 8 (2026-08-22).
+The `CLAUDE.md` §15 milestone labels (M1–M4) describe the original build plan; this table
+describes what's actually built.
 
 | | | |
 |---|---|---|
@@ -267,7 +264,7 @@ actually built as of Run 8 (2026-08-22).
 | Privacy & terms pages | real copy, verified against the actual schema/RLS/routes | ✅ Complete |
 | Meetups | poll → confirm state machine, un-attend cascade, official flag (`CLAUDE.md` §10) | ❌ Not started |
 | Calendar view | `/calendar` — mine/all toggle, month grid | ❌ Not started |
-| Seed catalog expansion | spec calls for 30–50 conferences before opening beyond the pilot; still at the original 15 seeded + whatever members have added | ❌ Not started |
+| Seed catalog expansion | spec calls for 30–50 conferences; still at the original 15 seeded + whatever members have added | ❌ Not started |
 
 **Explicitly out of scope**, and likely to stay that way: in-app messaging, photo
 uploads, a "considering" attendance state, session-level matching, calendar sync,
@@ -282,31 +279,30 @@ settled decision rather than raising a new idea.
 ## Known gaps
 
 - **No email at all, by design.** The curator distributes the invite code and contacts
-  members directly. Fine at pilot scale; a real deployment inside Circle would inherit
-  identity and notifications from Circle.
+  members directly. A real deployment inside Circle would inherit identity and
+  notifications from Circle instead.
 - **Design tokens are placeholder navy.** Real CREW brand values pending.
 - **No automated test suite yet**, beyond `npm run test:access` for RLS. Verification is
   otherwise script-driven and manual (`supabase/VERIFY.md`).
 - **No CREW member data.** Everything in the seed catalog is public conference
   information. No real member names, emails, or attendance data exist in this repo, and
   none should be added until CREW grants permission.
-- **The admin panel is at `/jeko43`, not `/admin`.** Deliberately renamed for obscurity
-  (Run 6) — the route is gated identically either way, the rename adds no real security.
-  `CLAUDE.md`'s references to `/admin` predate the rename and describe the panel's
-  function correctly, just not its current URL.
-- **Two seed/member-added conferences are unverified**: `HITEC North America 2027`
-  (deliberately, per `CLAUDE.md` §13 — it's the live example of the unverified marker)
-  and one member-added conference awaiting curator review, which is normal workflow
-  state, not a bug.
-- **A previously-open add-flow bug (the "TRANSACT dead end") is fixed** — see the commit
-  titled "Fix add-flow dead ends, open pilot to ~100 people." No action needed; noted
-  here in case it turns up in older notes or commit messages.
+- **The curator panel is at `/jeko43`, not `/admin`.** Deliberately renamed for
+  obscurity — the route is gated identically either way, and the rename adds no real
+  security. `CLAUDE.md`'s references to `/admin` predate the rename and describe the
+  panel's function correctly, just not its current URL.
+- **Two conferences are marked unverified**: one seeded entry, left that way
+  deliberately as a working example of the unverified-marker behavior (`CLAUDE.md` §13),
+  and one member-added entry awaiting curator review — normal workflow state, not a bug.
+
+No other defects are currently known. An earlier bug where the add-conference flow could
+silently reject a submission during duplicate-warning handling has been fixed.
 
 ---
 
 ## Contributing
 
-The pilot is a single-maintainer project, but if you're picking it up:
+This has been a single-maintainer project, but if you're picking it up:
 
 1. Read `CLAUDE.md` in full. It's long, and it will save you from re-litigating
    decisions that already have answers.

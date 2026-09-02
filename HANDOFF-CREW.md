@@ -1,198 +1,187 @@
-# Handoff to CREW — start here
+# Handoff to CREW
 
-You're a developer at CREW picking this up cold. This file exists so you don't have to
-reconstruct decisions from commit history. It doesn't contain setup instructions —
-`README.md` has those.
-
-**Read in this order:**
-1. **`CLAUDE.md`** — the full spec and, more importantly, the reasoning behind every
-   product decision. Long, but it will save you from re-litigating settled arguments.
-2. **`deferred-features.md`** — everything cut, and why. Read this before you write any
-   code, or you will rebuild something that was deliberately removed.
-3. **This file** — what to keep, what to throw away, and the lessons that don't live in
-   code.
-4. **`README.md`** — how to actually run it.
+This repository is a working prototype of a conference-overlap tool for CREW members.
+It is being handed off to CREW's team to be rebuilt properly inside CREW's own platform
+(Circle) — not run as-is. This file is the starting point for that rebuild.
 
 ---
 
-## What this is, and what it proved
+## What this is
 
-A proof of concept built by one CREW member (not CREW itself), to test a single
-question: if members could see who else was going to the same conferences, would they
-actually use it?
+Members mark which conferences they're attending, and immediately see which other
+members are going to the same ones. That single loop — mark a conference, see who else
+is going — is the entire product. Meetup coordination is designed but not built (see
+"Deliberately out of scope" below); everything else in the app supports the core loop.
 
-It is not connected to CREW's Circle community, has no real member data beyond a small
-pilot group, and was never meant to be the production version — it exists to make the
-idea concrete enough to evaluate.
+---
 
-**Honest usage numbers**, pulled directly from the live database on 2026-09-02, not
-estimated:
+## Read in this order
 
-| | Count |
-|---|---|
-| Anonymous sessions created (entered the invite code) | 24 |
-| Members who completed onboarding (have a name) | 6 |
-| — of which are real pilot participants (not the founder, not a blank test session) | 3 |
-| Conferences with at least one attendee marked | multiple, 16 attendance rows total |
-| Member-added conferences | 1 (AI lookup was never actually invoked — see below) |
-
-Context that matters more than the raw numbers: the 24 sessions are not 24 distinct
-people who tried the app. Most of them cluster in tight bursts on 2026-08-21 and
-2026-08-22 — the two days the app was being built and tested — which is developer
-testing, not pilot usage. The real usage is spread thin: one founding member (seeded with
-7 conferences), then three more named members joining on three separate days
-(2026-08-27 ×2, 2026-08-31) over the following ten days, two of whom added conferences
-of their own (2 and 7 respectively) and one who joined but added none. Two more sessions
-entered the invite code and never got past naming themselves.
-
-**Read this as:** the core loop works mechanically and a handful of real people used it
-without anything breaking, but this is nowhere near enough usage to say the idea is
-validated. It's a working demo, not evidence of product-market fit. Treat the pitch
-framing in `deferred-features.md` accordingly — "try it" is still the honest first ask.
-
-One more data point: the AI conference-lookup feature has **zero recorded calls** in the
-live database. The one member-added conference was entered manually. Everything said
-below about AI lookup cost and behavior comes from development-time testing, not pilot
-usage — it has not yet been exercised by a real user in production.
+1. **This file.**
+2. **`CLAUDE.md`** — the full product specification and the reasoning behind every
+   design decision. Long, but each decision is stated with the reasoning that produced
+   it, which is more useful than the conclusion alone.
+3. **`README.md`** — setup and architecture: how to run it, the data model, the security
+   model, and the project layout.
 
 ---
 
 ## What to keep
 
-- **The product decisions in `CLAUDE.md`.** Not just the conclusions — the reasoning.
-  Several designs (visibility, profiles, meetups) were built in a more elaborate form
-  first and cut after turning out to be the buggiest, highest-risk part of the spec.
-  That history is why the current design looks minimal; it isn't unfinished, it's
-  post-simplification.
-- **The conferences-first onboarding flow.** Name, then conferences, then show the
-  payoff immediately. The ordering is deliberate: a new member has to see another
-  member's name next to a conference before they're asked for anything else.
-- **The duplicate-detection approach.** Fuzzy-match on name against `conference_series`
-  and its `aliases`, but treat date agreement as equally important as name agreement, and
-  surface ambiguity to the member instead of silently resolving it. See "conference data
-  lessons" below — this exists because of real failures, not caution for its own sake.
+- **The product decisions in `CLAUDE.md`.** Roughly two dozen of them, each with the
+  reasoning behind it. This is the most valuable thing in the repository — more valuable
+  than the code itself, since the code will be rebuilt but the reasoning transfers
+  directly.
+- **Conferences-first onboarding.** Ask a new member for the conferences they're
+  attending before asking for anything else, and show the payoff — who else is going —
+  immediately afterward. Profile fields, if any, come later or not at all. This ordering
+  is what makes the core loop land in under a minute; reversing it (profile first, payoff
+  later) was tried in an earlier design and produced worse first-run engagement.
+- **Duplicate detection**, including matching on event dates as well as event name. See
+  "Conference data lessons" below — this exists because of specific, reproducible
+  failures, not general caution.
 - **The seeded conference catalog and its verification standard**: every entry checked
-  against the organizer's own domain, not an aggregator. Cheap to maintain, expensive to
-  get right the first time, worth preserving that standard rather than relaxing it.
-- **The AI lookup design, guardrails included**: server-side only key, per-member and
-  global rate limits, aggressive caching, a kill switch, manual entry as the path that
-  always works regardless of AI state. These guardrails cost little and the failure mode
-  without them (an exposed key, an unbounded bill) is bad enough to keep all of them even
-  if you rebuild the surrounding UI.
+  against the organizer's own domain rather than an aggregator listing.
+- **AI-assisted conference lookup**, including its guardrails: the API key is
+  server-side only, there are per-member and global rate limits, results are cached
+  aggressively, there's an application-level kill switch, and a hard spend cap is set
+  outside the application (in the API provider's own console). Keep all of these even if
+  the surrounding UI is rebuilt — the guardrails cost little and the failure mode without
+  them (an exposed key, an unbounded bill) is expensive.
 
 ## What to throw away
 
-**The entire access model.** Invite code, anonymous Supabase sessions, typed-name
-"relinking" to recover identity, the member cap. All of it exists for one reason: there
-was no identity system available to a single member building outside CREW's platform.
-Inside CREW, identity is already solved — every one of these mechanisms should disappear,
-not be adapted. Don't try to preserve the invite-code gate as a feature; it was a
-workaround, not a design choice anyone would make with real auth available.
+**The entire access model.** Invite code, anonymous sessions, typed-name identity —
+none of it should be carried into a CREW rebuild. It exists only because the prototype
+had no identity system to draw on. Inside CREW, identity is already solved, and every
+mechanism built to work around its absence (the invite-code gate, session recovery by
+picking a name from a list, the onboarding friction this created) disappears with it.
 
-Concretely, this means: no `members.auth_user_id` reconciliation dance, no anonymous
-auth, no "pick your name from a list" recovery flow, no hard-coded member cap. Identity
-resolution becomes "this is CREW user #4231," full stop.
+**No per-member visibility settings.** Every member sees every other member's
+conferences, by name — there is no privacy toggle. This was designed with two visibility
+modes and partial name lists first, then cut: it was the most bug-prone part of the
+design and protected almost nothing, since a member who doesn't want a conference known
+simply doesn't add it. Worth reconsidering only if actual members ask for it — don't
+rebuild it preemptively.
+
+**No email, no notifications.** The prototype sends no message of any kind. That was a
+direct consequence of having no identity system; inside CREW, any notifications this
+needs should go through Circle's existing channels rather than a new one built for this
+feature.
+
+**No messaging.** Members already message each other on CREW's own platform. This tool's
+job is to tell a member *that* they should reach out, never to be a second inbox.
+
+## Deliberately out of scope
+
+Not built, and each one considered and set aside rather than overlooked:
+
+- **Meetup coordination.** The natural next step — someone proposes drinks Tuesday at a
+  conference, other attendees vote on a time, one slot is confirmed. Fully designed
+  (`CLAUDE.md` §10) but not built. The prototype scoped itself to proving the first half
+  of the idea: knowing who's there.
+- **Calendar view.** A month grid of everyone's travel. A list already answers "who's
+  going where"; the grid is a prettier way to show the same answer, not a more useful
+  one.
+- **Session-level matching.** Knowing two members are at the same conference is useful.
+  Knowing they're in the same breakout session is a much harder data problem for a
+  smaller payoff.
+- **A "considering" attendance state.** Going or not going. A maybe list adds noise and
+  makes every roster less trustworthy.
+- **Profile fields** — title, company, LinkedIn. Cut because CREW's own member profiles
+  already supply this; building a parallel profile system for the prototype would only
+  have created something to migrate away from.
 
 ---
 
-## The first thing to check: which Circle plan CREW is on
+## The Circle constraint — check this first
 
-The community runs on Circle. Circle's **Headless API and Auth API require a Business
-plan**; the **Data API requires an enterprise tier**. This determines the entire shape of
-the rebuild before any other decision matters:
+CREW's community runs on Circle. Circle's Headless API and Auth API require a Business
+plan; the Data API requires an enterprise tier. **Which plan CREW is on determines
+whether this becomes an embed or a native build**, and that decision shapes almost every
+other choice in the rebuild. Establish this before anything else.
 
-- If CREW has API access at the right tier, this can be a genuine embed — native
-  identity, no separate auth system, no separate member list.
-- If not, this becomes a native build against whatever Circle exposes at the current
-  plan (or a standalone app that links out to Circle), which is a different project with
-  different tradeoffs.
-
-Check this first. It changes the answer to almost every other question in this file.
-
----
-
-## Why the app is iframe-safe, and why that mattered here
-
-Every architectural choice below was made because this PoC might end up embedded in
-Circle, and needed to not foreclose that:
-
-- **Auth tokens live in localStorage, not cookies.** Third-party cookies are unreliable
-  or blocked outright inside an iframe on another domain; localStorage isn't.
-- **No frame-blocking headers** (no `X-Frame-Options: DENY`), and no assumption of a
-  top-level navigation bar.
-- **Mobile-first throughout**, including surviving a 380px-wide embed.
-
-**If you build natively inside Circle** (i.e., not as an iframe), none of these
-constraints apply anymore — you can use normal cookie sessions, you're not fighting frame
-width, and you should feel free to drop all of it. The point of flagging this is so you
-know these were deliberate engineering choices in service of a specific deployment shape,
-not defaults — so you don't spend time puzzling over why auth doesn't use cookies before
-realizing you don't need to preserve it.
+The prototype was built iframe-safe throughout in case embedding turned out to be the
+answer: auth tokens in localStorage rather than cookies (third-party cookies are
+unreliable or blocked inside an iframe on another domain), no frame-blocking headers, and
+a mobile-first layout that survives a narrow embedded width. None of these constraints
+apply to a native build — but they were deliberate engineering choices made for a
+specific deployment shape, not defaults, which is worth knowing before assuming they can
+simply be dropped.
 
 ---
 
 ## Conference data lessons
 
-These came from actually building the seed catalog and watching members add conferences,
-not from principle. They're easy to lose if you're rebuilding from a clean slate — write
-them into whatever replaces this system.
+These came from building the seed catalog and watching real conference-adding attempts,
+not from general principle. They are easy to lose when rebuilding from a clean slate.
 
-- **The member is the primary source; AI is the verifier, never the reverse.** During
-  seeding, a member supplied seven conferences from memory and was correct on six of
-  them. AI lookup and third-party aggregator listings were less reliable than that. Don't
-  build a system that lets AI silently overwrite what a member typed.
+- **The member is the primary source; AI is the verifier, never the reverse.** In
+  testing, a member supplied seven conferences from memory and was correct on six of
+  them — more reliable than AI lookup or third-party aggregator listings for the same
+  events.
 - **Organizer domains beat aggregator listings.** Aggregators were wrong repeatedly
-  during testing — one placed Fintech Meetup at the wrong venue entirely. Weight the
-  organizer's own site heavily; treat listing/aggregator sites as corroboration only.
-- **Near-duplicates are the real hazard, more than typos.** Reuters Events alone runs
-  Momentum AI Austin, Momentum AI New York, and Momentum AI Finance — near-identical
-  names, different cities and months. In testing, a member's typed event name matched the
-  *wrong* one of these while their typed dates matched the *right* one.
-  **Match on dates, not just name, and when the two disagree, surface both candidates
-  instead of resolving silently.** This is the single most important lesson in this list.
-- **Split rosters are the failure mode that makes the app look broken.** If the same
-  real-world conference exists as two separate rows because a duplicate wasn't caught,
-  attendees get split across them and the app appears to be missing people who are
-  actually there. Whatever you build to replace duplicate detection, treat this as the
-  failure case to design against, not an edge case to tolerate.
+  during testing — one placed a real conference at the wrong venue entirely. Weight the
+  organizer's own site heavily; treat aggregator and listing sites as corroboration only.
+- **Near-identical event names are the real hazard, more than typos.** Reuters Events
+  alone runs Momentum AI Austin, Momentum AI New York, and Momentum AI Finance — distinct
+  events, similar names. In testing, a member's typed event name matched the *wrong* one
+  of these while their typed dates matched the *right* one. **Match on dates as well as
+  name, and when the two disagree, surface both candidates instead of resolving
+  silently.** This is the single most important lesson here.
+- **Split rosters are the failure mode that makes the tool look broken** — the same
+  real-world conference existing as two separate entries, with attendees split across
+  both. Duplicate detection is what prevents this, and it matters more than it looks like
+  it should from the outside.
+- **Wrong dates are the one unrecoverable error.** Someone books a flight off this data.
+  A conference added from an unverified source should be visibly marked as such until
+  confirmed.
 
 ---
 
-## Operating costs at pilot scale
+## Operating cost
 
-Real measured numbers, not projections:
+Measured figures, not projections: roughly **2¢ per AI-assisted conference lookup**
+(Claude Haiku plus web search). Supabase and Vercel free tiers covered the entire
+prototype's usage without needing a paid tier.
 
-- **AI conference lookup: roughly 2¢ per lookup** (Claude Haiku + web search, ~$0.03
-  ceiling per call at worst case with retries). Note again: this cost was never actually
-  incurred in production — the live pilot has zero AI lookups on record. These are
-  development-time measurements.
-- **Supabase and Vercel free tiers were sufficient for the entire pilot**, at the usage
-  levels above (single-digit real members, low hundreds of database rows). Neither was
-  close to a paid-tier limit at any point.
-- These numbers do not tell you anything about cost at CREW's actual membership scale —
-  they only establish that infrastructure cost was never a constraint at pilot size.
+**Actual usage, pulled directly from the live database:**
+
+| | |
+|---|---|
+| Sessions that entered and got past the access gate | 24 |
+| Of those, sessions that completed setup with a name | 6 |
+| Conferences with at least one member attending | several, 16 attendance records total |
+| Conferences added by a member rather than pre-seeded | 1 |
+| AI-assisted lookups actually performed | 0 |
+
+Two things worth knowing about these numbers before drawing conclusions from them: most
+of the 24 sessions cluster in short bursts on the two days the prototype was being built
+and tested, which is development activity rather than distinct people trying the tool.
+Real, spread-out usage — sessions on separate days, by different named members — accounts
+for a small handful of the total. And the AI lookup feature has zero recorded calls in
+production; the one member-added conference above was entered manually. The 2¢ figure is
+a development-time cost measurement, not a cost the prototype has actually incurred in
+use.
+
+Read this as: the mechanics work end-to-end and nothing broke under real use, but the
+usage volume is far too small to draw conclusions about member interest from it.
 
 ---
 
 ## Known issues
 
-- **Two anonymous sessions never completed onboarding** (entered the invite code, never
-  supplied a name). Not investigated further — could be people who bounced, or duplicate
-  attempts from the same person. Worth noting only because "sessions created" and
-  "members" are not the same number, and a naive count of one will overstate the other.
-- **One member-added conference (MRC London) is still unverified** in the curator review
-  queue — normal workflow state, not a bug, but flagging it so it isn't mistaken for
-  broken data if you inspect the database directly.
-- **One seed conference (HITEC North America 2027) is deliberately left unverified** —
-  its dates came from aggregators only. This is intentional (see `CLAUDE.md` §13); it's
-  the live example of the "unverified" marker rendering, not an oversight.
-- **A previously-open bug is now fixed and can be ignored**: an earlier build had a dead
-  end in the conference add-flow (internally called "the TRANSACT dead end," after the
-  conference name that surfaced it) where a disabled submit button silently ate taps
-  during duplicate-detection warnings. Fixed in the commit titled "Fix add-flow dead
-  ends, open pilot to ~100 people." No action needed — mentioned here only in case you
-  find that phrase in old commit messages and wonder if it's still a problem.
-- **The admin panel lives at `/jeko43`, not `/admin`.** This is a deliberate rename for
-  obscurity (it adds no real security — the route is still gated the same way `/admin`
-  was) but it means `CLAUDE.md` and `README.md`'s references to `/admin` no longer match
-  the actual URL. If you're looking for the curator tools, they're at `/jeko43`.
+- **One member-added conference is awaiting curator verification** — normal workflow
+  state (an unverified marker shows until confirmed), not a defect.
+- **One seeded conference is deliberately left unverified** as a working example of the
+  unverified-marker behavior — intentional, not an oversight.
+- **A small number of sessions entered the access gate but never completed setup** (no
+  name recorded). Not investigated further; noted only because it means "sessions
+  created" and "members" are not the same count if you're reading the database directly.
+- **The admin/curator panel is not at the URL `CLAUDE.md` and `README.md` describe.**
+  It was relocated late in development for obscurity, and the spec documents predate
+  that move. `README.md`'s "Known gaps" section has the current URL.
+
+No other defects are currently known. An earlier add-flow bug (members hitting a dead
+end when the duplicate-conference warning appeared) was found and fixed during
+development; it does not affect the current build.
